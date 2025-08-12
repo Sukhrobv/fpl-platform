@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FPL Analytics Platform 🎯
 
-## Getting Started
+Personal analytics platform for Fantasy Premier League that aggregates data from multiple sources and provides AI-powered insights.
 
-First, run the development server:
+## 🚀 Features (Planned)
+
+- **Multi-source data aggregation** - FPL API, Sofascore, Understat
+- **Intelligent player mapping** - Connecting players across different data sources
+- **AI-powered insights** - Natural language queries about your FPL team
+- **Personal team analysis** - Tailored recommendations based on your squad
+- **Real-time updates** - Automated data synchronization after matches
+
+## 🛠 Tech Stack
+
+- **Framework:** Next.js 14 (App Router)
+- **Language:** TypeScript
+- **Database:** PostgreSQL + Prisma ORM
+- **Styling:** Tailwind CSS + shadcn/ui
+- **AI Integration:** OpenAI/Claude API
+- **Deployment:** Docker (planned)
+
+## 📦 Installation
 
 ```bash
+# Clone repository
+git clone https://github.com/USERNAME/fpl-platform.git
+cd fpl-platform
+
+# Install dependencies
+npm install
+
+# Setup environment variables
+cp .env.example .env.local
+# Edit .env.local with your database credentials
+
+# Setup database
+npx prisma migrate dev
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🗺 Development Roadmap
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Phase 1: Foundation ✅
+- [x] Project setup with Next.js + TypeScript
+- [x] Database schema design
+- [ ] Basic infrastructure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Phase 2: FPL Integration 🚧
+- [ ] FPL API client
+- [ ] Data models and storage
+- [ ] Automated updates
 
-## Learn More
+### Phase 3: External Data 📅
+- [ ] Sofascore integration
+- [ ] Player mapping algorithm
+- [ ] Data validation
 
-To learn more about Next.js, take a look at the following resources:
+### Phase 4: AI Integration 📅
+- [ ] LLM integration
+- [ ] Natural language to SQL
+- [ ] Smart recommendations
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Phase 5: User Interface 📅
+- [ ] Dashboard design
+- [ ] Data visualizations
+- [ ] Mobile responsive
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔧 Development
 
-## Deploy on Vercel
+```bash
+# Run dev server
+npm run dev
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Run type checking
+npm run type-check
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Run linting
+npm run lint
+
+# Format code
+npm run format
+
+# Database migrations
+npx prisma migrate dev
+npx prisma studio  # Visual database editor
+```
+
+## 📁 Project Structure
+
+```
+fpl-platform/
+├── app/              # Next.js app router
+│   ├── api/         # API endpoints
+│   └── (dashboard)/ # UI pages
+├── components/       # React components
+├── lib/             # Core logic
+│   ├── db/         # Database client
+│   ├── parsers/    # Data parsers
+│   ├── mappers/    # Player mapping
+│   └── ai/         # AI integration
+├── prisma/          # Database schema
+└── types/           # TypeScript types
+```
+
+## 👤 Author
+
+Created as a personal project for FPL analytics.
+
+## 📄 License
+
+Private project - not for commercial use.
+
+---
+
+**Status:** 🚧 Under active development
