@@ -1,15 +1,414 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// FPL Analytics Platform - Database Schema
+// Version: 1.0.0
+// Focus: Multi-source data mapping
+// Created: 2024-12-19
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../app/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Position {
+  GOALKEEPER
+  DEFENDER
+  MIDFIELDER
+  FORWARD
+}
+
+enum MappingMethod {
+  EXACT_MATCH     // Name and team match perfectly
+  FUZZY_MATCH     // Fuzzy string matching
+  MANUAL          // Manually confirmed
+  AI_SUGGESTED    // AI helped to match
+}
+
+enum MappingStatus {
+  CONFIRMED       // Verified and correct
+  PENDING         // Needs verification
+  FAILED          // Could not map
+  IGNORED         // Intentionally not mapped
+}
+
+enum ChipType {
+  WILDCARD
+  FREE_HIT
+  BENCH_BOOST
+  TRIPLE_CAPTAIN
+}
+
+// ============================================
+// CORE ENTITIES
+// ============================================
+
+model Team {
+  id              Int       @id @default(autoincrement())
+  
+  // FPL Data (source of truth)
+  fplId          Int       @unique
+  name           String
+  shortName      String    // 3-letter code like "ARS", "CHE"
+  
+  // External IDs for mapping
+  sofascoreId    Int?      @unique
+  understatId    String?   @unique
+  
+  // Additional metadata
+  stadium        String?
+  founded        Int?
+  primaryColor   String?
+  secondaryColor String?
+  
+  // Relations
+  players        Player[]
+  homeMatches    Match[]   @relation("HomeTeam")
+  awayMatches    Match[]   @relation("AwayTeam")
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastSyncedAt   DateTime?
+  
+  @@index([fplId])
+  @@index([sofascoreId])
+  @@map("teams")
+}
+
+model Player {
+  id              Int       @id @default(autoincrement())
+  
+  // FPL Data (source of truth)
+  fplId          Int       @unique
+  code           Int       @unique // FPL's internal code
+  webName        String    // Display name like "Salah"
+  firstName      String
+  secondName     String
+  
+  // Current status
+  position       Position
+  teamId         Int
+  team           Team      @relation(fields: [teamId], references: [id])
+  squadNumber    Int?
+  
+  // FPL specific data
+  nowCost        Int       // Price x10 (e.g., 125 = £12.5m)
+  selectedBy     Float     // Ownership percentage
+  totalPoints    Int
+  pointsPerGame  Float
+  form           Float     // Recent form rating
+  status         String?   // Injury status
+  news           String?   // Latest news
+  newsAdded      DateTime?
+  chanceOfPlaying Int?     // Next match availability %
+  
+  // External mappings - CRITICAL FOR PROJECT
+  playerMappings PlayerMapping[]
+  
+  // Stats relations
+  fplStats       FPLPlayerStats[]
+  externalStats  ExternalPlayerStats[]
+  
+  // Fantasy team relations
+  fantasyPicks   FantasyTeamPick[]
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastSyncedAt   DateTime?
+  
+  @@index([fplId])
+  @@index([teamId])
+  @@index([position])
+  @@map("players")
+}
+
+// ============================================
+// MAPPING TABLES - CORE OF THE SYSTEM
+// ============================================
+
+model PlayerMapping {
+  id              Int       @id @default(autoincrement())
+  
+  // FPL Player reference
+  playerId       Int
+  player         Player    @relation(fields: [playerId], references: [id])
+  
+  // External source identification
+  source         String    // "sofascore", "understat", "fbref", etc.
+  externalId     String    // ID in that system
+  
+  // Mapping quality
+  method         MappingMethod
+  status         MappingStatus  @default(PENDING)
+  confidence     Float     @default(0) // 0-1 confidence score
+  
+  // Mapping metadata
+  mappedBy       String?   // "system", "user:email", "ai"
+  mappedAt       DateTime  @default(now())
+  verifiedAt     DateTime?
+  notes          String?
+  
+  // Make sure one player has only one mapping per source
+  @@unique([playerId, source])
+  @@index([source, externalId])
+  @@map("player_mappings")
+}
+
+// ============================================
+// MATCH DATA
+// ============================================
+
+model Match {
+  id              Int       @id @default(autoincrement())
+  
+  // FPL Data
+  fplId          Int       @unique
+  gameweek       Int
+  
+  // Teams
+  homeTeamId     Int
+  homeTeam       Team      @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId     Int
+  awayTeam       Team      @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  
+  // Match info
+  kickoffTime    DateTime
+  homeScore      Int?
+  awayScore      Int?
+  finished       Boolean   @default(false)
+  started        Boolean   @default(false)
+  
+  // External IDs
+  sofascoreId    Int?      @unique
+  understatId    String?   @unique
+  
+  // Relations
+  playerStats    FPLPlayerStats[]
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  @@index([gameweek])
+  @@index([kickoffTime])
+  @@map("matches")
+}
+
+// ============================================
+// STATISTICS TABLES
+// ============================================
+
+model FPLPlayerStats {
+  id              Int       @id @default(autoincrement())
+  
+  // Relations
+  playerId       Int
+  player         Player    @relation(fields: [playerId], references: [id])
+  matchId        Int
+  match          Match     @relation(fields: [matchId], references: [id])
+  gameweek       Int
+  
+  // FPL Points breakdown
+  minutes        Int
+  goals          Int       @default(0)
+  assists        Int       @default(0)
+  cleanSheets    Int       @default(0)
+  goalsConceded  Int       @default(0)
+  ownGoals       Int       @default(0)
+  penaltiesSaved Int       @default(0)
+  penaltiesMissed Int      @default(0)
+  yellowCards    Int       @default(0)
+  redCards       Int       @default(0)
+  saves          Int       @default(0)
+  bonus          Int       @default(0)
+  bps            Int       @default(0) // Bonus Points System
+  totalPoints    Int
+  
+  // Additional FPL data
+  influence      Float
+  creativity     Float
+  threat         Float
+  ictIndex       Float     // Combined ICT
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  @@unique([playerId, matchId])
+  @@index([gameweek])
+  @@map("fpl_player_stats")
+}
+
+model ExternalPlayerStats {
+  id              Int       @id @default(autoincrement())
+  
+  // Relations
+  playerId       Int
+  player         Player    @relation(fields: [playerId], references: [id])
+  gameweek       Int
+  source         String    // "sofascore", "understat", etc.
+  
+  // Universal stats (most sources have these)
+  minutes        Int?
+  goals          Int?
+  assists        Int?
+  shots          Int?
+  shotsOnTarget  Int?
+  keyPasses      Int?
+  
+  // Advanced stats (xG, xA, etc.)
+  xG             Float?    // Expected goals
+  xA             Float?    // Expected assists
+  xGChain        Float?    // xG Chain
+  xGBuildup      Float?    // xG Buildup
+  
+  // Sofascore specific
+  rating         Float?    // Match rating
+  touches        Int?
+  passAccuracy   Float?
+  dribbles       Int?
+  aerialDuels    Int?
+  
+  // Raw JSON for source-specific data
+  rawData        Json?
+  
+  // Metadata
+  matchDate      DateTime
+  homeTeam       String
+  awayTeam       String
+  wasHome        Boolean
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  @@unique([playerId, gameweek, source])
+  @@index([gameweek])
+  @@index([source])
+  @@map("external_player_stats")
+}
+
+// ============================================
+// USER FANTASY TEAMS
+// ============================================
+
+model User {
+  id              Int       @id @default(autoincrement())
+  
+  // User identification
+  email          String    @unique
+  name           String?
+  fplTeamId      Int?      @unique
+  
+  // Relations
+  fantasyTeams   FantasyTeam[]
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastLoginAt    DateTime?
+  
+  @@map("users")
+}
+
+model FantasyTeam {
+  id              Int       @id @default(autoincrement())
+  
+  // Relations
+  userId         Int
+  user           User      @relation(fields: [userId], references: [id])
+  gameweek       Int
+  
+  // Team details
+  teamValue      Int       // Total value x10
+  bank           Int       // Money in bank x10
+  freeTransfers  Int
+  pointsHit      Int       @default(0) // Points deduction
+  
+  // Chips
+  chipUsed       ChipType?
+  
+  // Squad
+  picks          FantasyTeamPick[]
+  
+  // Performance
+  gameweekPoints Int?
+  totalPoints    Int?
+  gameweekRank   Int?
+  overallRank    Int?
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  @@unique([userId, gameweek])
+  @@index([gameweek])
+  @@map("fantasy_teams")
+}
+
+model FantasyTeamPick {
+  id              Int       @id @default(autoincrement())
+  
+  // Relations
+  fantasyTeamId  Int
+  fantasyTeam    FantasyTeam @relation(fields: [fantasyTeamId], references: [id])
+  playerId       Int
+  player         Player    @relation(fields: [playerId], references: [id])
+  
+  // Pick details
+  position       Int       // Position in formation (1-15)
+  isCaptain      Boolean   @default(false)
+  isViceCaptain  Boolean   @default(false)
+  multiplier     Int       @default(1) // 2 for captain, 3 for TC
+  
+  @@unique([fantasyTeamId, position])
+  @@map("fantasy_team_picks")
+}
+
+// ============================================
+// SYNC AND METADATA
+// ============================================
+
+model SyncLog {
+  id              Int       @id @default(autoincrement())
+  
+  // What was synced
+  source         String    // "fpl", "sofascore", "understat"
+  syncType       String    // "players", "matches", "stats"
+  gameweek       Int?
+  
+  // Results
+  success        Boolean
+  recordsUpdated Int       @default(0)
+  recordsFailed  Int       @default(0)
+  errorMessage   String?
+  
+  // Timing
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  duration       Int?      // Duration in seconds
+  
+  @@index([source, syncType])
+  @@index([startedAt])
+  @@map("sync_logs")
+}
+
+model AppConfig {
+  id              Int       @id @default(autoincrement())
+  key            String    @unique
+  value          String
+  description    String?
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  @@map("app_config")
 }
