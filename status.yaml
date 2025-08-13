@@ -14,8 +14,8 @@ project_info:
 current_position:
   chapter: 1
   stage: "1.3"
-  substage: "Ready to start"
-  description: "Базовая инфраструктура кода - готовы начать"
+  substage: "In progress"
+  description: "Базовая инфраструктура кода - реализованы API routes для команд и игроков"
 
 progress:
   completed_chapters:
@@ -63,14 +63,22 @@ progress:
                 - "Database тест пройден"
                 - "npm scripts настроены"
 
+          - stage_1_3:
+              name: "Базовая инфраструктура кода"
+              completed: false
+              started: "2025-08-13 [ВРЕМЯ УТОЧНИТЬ]"
+              artifacts:
+                - "app/api/teams/route.ts - Teams API route"
+                - "app/api/players/route.ts - Players API route"
+
   current_work:
-    task: "Готовы начать Этап 1.3 - Базовая инфраструктура кода"
-    started: null
+    task: "Этап 1.3 - API routes для команд и игроков"
+    started: "2025-08-13 [ВРЕМЯ УТОЧНИТЬ]"
     blockers: []
-    notes: "Следующий шаг - создание API endpoints и базовой структуры"
+    notes: "Реализованы endpoints /api/teams и /api/players с пагинацией и фильтрами"
 
   next_steps:
-    immediate: "Этап 1.3: Создать базовые API routes и структуру"
+    immediate: "Этап 1.3: Подготовить FPL API client и скрипт синхронизации"
     upcoming:
       - "Этап 1.4: Инструменты разработки (логирование, тесты)"
       - "Глава 2: Интеграция FPL API"
