@@ -1,5 +1,5 @@
 # FPL Platform - Status File
-# Updated: 2025-08-13 [ВРЕМЯ УТОЧНИТЬ]
+# Updated: 2025-08-13 22:18
 # Chat ID: initial_development_session
 # GitHub: https://github.com/Sukhrobv/fpl-platform
 
@@ -7,15 +7,15 @@ project_info:
   name: "FPL Analytics Platform"
   version: "0.1.0"
   status: "Active Development"
-  last_sync: "2025-08-13 [ВРЕМЯ УТОЧНИТЬ]"
+  last_sync: "2025-08-13 22:18"
   repository: "https://github.com/Sukhrobv/fpl-platform"
   description: "Personal FPL analytics tool with Next.js monolith architecture"
 
 current_position:
   chapter: 1
   stage: "1.3"
-  substage: "In progress"
-  description: "Базовая инфраструктура кода - реализованы API routes для команд и игроков"
+  substage: "Completed"
+  description: "Базовая инфраструктура кода – подготовлены API‑роуты, клиент FPL и скрипт синхронизации"
 
 progress:
   completed_chapters:
@@ -31,7 +31,6 @@ progress:
           - "GitHub repository connected"
           - "All dependencies installed"
           - "README.md created"
-          
     - chapter_1_partial:
         name: "Фундамент и архитектура"
         stages:
@@ -47,7 +46,6 @@ progress:
                 - "PlayerMapping таблица для связи источников"
                 - "Confidence scoring для качества маппинга"
                 - "FPL как primary source of truth"
-                
           - stage_1_2:
               name: "Настройка окружения"
               completed: true
@@ -62,27 +60,28 @@ progress:
                 - "Миграции применены успешно"
                 - "Database тест пройден"
                 - "npm scripts настроены"
-
           - stage_1_3:
               name: "Базовая инфраструктура кода"
-              completed: false
-              started: "2025-08-13 [ВРЕМЯ УТОЧНИТЬ]"
+              completed: true
+              date: "2025-08-13 22:18"
               artifacts:
                 - "app/api/teams/route.ts - Teams API route"
                 - "app/api/players/route.ts - Players API route"
+                - "lib/fplClient.ts - FPL API client"
+                - "scripts/sync-fpl.ts - FPL sync script"
 
   current_work:
-    task: "Этап 1.3 - API routes для команд и игроков"
-    started: "2025-08-13 [ВРЕМЯ УТОЧНИТЬ]"
+    task: "Ожидание разрешения на переход к этапу 1.4"
+    started: "2025-08-13 22:18"
     blockers: []
-    notes: "Реализованы endpoints /api/teams и /api/players с пагинацией и фильтрами"
+    notes: "Этап 1.3 завершён; подготовлены клиент и скрипт синхронизации."
 
   next_steps:
-    immediate: "Этап 1.3: Подготовить FPL API client и скрипт синхронизации"
+    immediate: "Получить разрешение на начало этапа 1.4: Инструменты разработки (логирование, тесты)"
     upcoming:
-      - "Этап 1.4: Инструменты разработки (логирование, тесты)"
-      - "Глава 2: Интеграция FPL API"
-      - "Глава 3: Маппинг и внешние данные"
+      - "Этап 1.4: Инструменты разработки (логирование, тесты)"
+      - "Глава 2: Интеграция FPL API"
+      - "Глава 3: Маппинг и внешние данные"
 
 technical_stack:
   confirmed:
@@ -94,13 +93,11 @@ technical_stack:
     ui_components: "shadcn/ui"
     package_manager: "npm"
     node_runtime: "tsx"
-    
   database_config:
     provider: "Supabase"
     region: "Frankfurt"
     connection: "Direct connection for migrations, pooled for app"
     status: "Connected and operational"
-    
   installed_packages:
     core:
       - "next: 14.2.18"
@@ -120,7 +117,7 @@ technical_stack:
       - "tailwind-merge: ^2.6.0"
     utils:
       - "date-fns: ^4.1.0"
-      - "axios: ^1.7.9"
+      - "axios: (не установлено)" # планируется для будущих интеграций
       - "tsx: ^4.19.2"
 
 code_artifacts:
@@ -128,89 +125,49 @@ code_artifacts:
     type: "documentation"
     description: "Setup instructions"
     status: "completed"
-    
   - artifact_id: "prisma-schema-complete"
     filename: "schema.prisma"
     path: "/prisma/"
     status: "deployed"
     description: "Complete DB schema with mapping focus"
-    
   - artifact_id: "env-config-setup"
     filename: "env.ts"
     path: "/lib/"
     status: "deployed"
-    
   - artifact_id: "prisma-client-setup"
     filename: "db.ts"
     path: "/lib/"
     status: "deployed"
-    
   - artifact_id: "types-definitions"
     filename: "index.ts"
     path: "/types/"
     status: "deployed"
-    
   - artifact_id: "test-db-script"
     filename: "test-db.ts"
     path: "/scripts/"
     status: "deployed"
     test_result: "✅ Passed successfully"
+  - artifact_id: "fpl-api-client"
+    filename: "fplClient.ts"
+    path: "/lib/"
+    status: "created"
+    description: "HTTP client for the public FPL API"
+  - artifact_id: "fpl-sync-script"
+    filename: "sync-fpl.ts"
+    path: "/scripts/"
+    status: "created"
+    description: "Script to fetch FPL data and upsert teams/players into DB"
 
 decisions_log:
   - date: "2025-08-13"
     decision: "Use Next.js monolith instead of Python backend"
     reasoning: "Simpler deployment, single language, developer expertise"
-    
   - date: "2025-08-13"
     decision: "Choose Supabase for database hosting"
     reasoning: "Free tier sufficient, easy setup, built-in tools"
-    
   - date: "2025-08-13"
     decision: "TypeScript strict mode enabled"
     reasoning: "Better type safety for complex data mappings"
-    
-  - date: "2025-08-13"
-    decision: "Prisma as ORM"
-    reasoning: "Type safety, migrations, great DX"
-    
-  - date: "2025-08-13"
-    decision: "FPL as primary data source"
-    reasoning: "Official data, other sources map to FPL IDs"
-
-open_questions:
-  - question: "How to handle Sofascore rate limiting?"
-    priority: "medium"
-    target_stage: "3.3"
-    
-  - question: "Which AI service - OpenAI or Claude?"
-    priority: "low"
-    target_stage: "4.1"
-    
-  - question: "Need proxy rotation for scraping?"
-    priority: "medium"
-    target_stage: "3.1"
-
-environment:
-  os: "Windows 11 (MINGW64)"
-  node_version: "To be confirmed"
-  npm_version: "To be confirmed"
-  git: "Configured with GitHub"
-  database: "Supabase PostgreSQL (Frankfurt region)"
-  ide: "Not specified"
-
-notes:
-  - "Project successfully initialized"
-  - "Database fully configured and tested"
-  - "Project structure established"
-  - "Ready to build API infrastructure in next session"
-  - "Focus remains on data mapping quality"
-
-metadata:
-  total_chats: 1
-  session_start: "2025-08-13 [ВРЕМЯ НАЧАЛА]"
-  session_end: "2025-08-13 [ВРЕМЯ СЕЙЧАС]"
-  duration: "[УТОЧНИТЬ]"
-  lines_of_code: "~500"
-  commits: 3
-  stages_completed: 3
-  next_session: "Continue with Stage 1.3"
+  - date: "2025-08-13 22:18"
+    decision: "Implement FPL API client and synchronization script"
+    reasoning: "Завершение этапа 1.3: необходима основа для интеграции данных в следующих главах"
