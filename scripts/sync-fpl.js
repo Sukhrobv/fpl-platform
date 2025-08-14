@@ -1,20 +1,27 @@
-// scripts/sync-fpl.js – Synchronize FPL teams and players into the database using CommonJS
+// scripts/sync-fpl.js – синхронизация команд и игроков FPL в базу данных
+//
+// Эта версия скрипта использует общий логгер и функции подключения к
+// базе данных из модуля `lib/db`.  Она сохраняет прежнюю логику
+// upsert'ов для команд и игроков, но выводит сообщения через
+// структурированный логгер вместо прямых вызовов console.log.
 
 const { prisma, connectDB, disconnectDB } = require('../lib/db');
 const { getBootstrapData } = require('../lib/fplClient');
+const { logger } = require('../lib/logger');
 const { Prisma } = require('@prisma/client');
 
 async function main() {
-  // Connect to the database
+  // Подключаемся к базе через helper
   const connected = await connectDB();
   if (!connected) {
     throw new Error('Unable to connect to database');
   }
-  // Fetch bootstrap data from FPL
-  const { teams, elements } = await getBootstrapData();
-  console.log(`Fetched ${teams.length} teams and ${elements.length} players from FPL API`);
 
-  // Upsert teams
+  // Получаем команды и игроков из FPL API
+  const { teams, elements } = await getBootstrapData();
+  logger.info(`Fetched ${teams.length} teams and ${elements.length} players from FPL API`);
+
+  // Обновляем или создаём команды (используем fplId как уникальный ключ)
   for (const team of teams) {
     await prisma.team.upsert({
       where: { fplId: team.id },
@@ -31,9 +38,9 @@ async function main() {
       },
     });
   }
-  console.log(`Upserted ${teams.length} teams`);
+  logger.info(`Upserted ${teams.length} teams`);
 
-  // Mapping from FPL element_type to Position enum
+  // Карта соответствия FPL element_type → enum Position
   const positionMap = {
     1: Prisma.Position.GOALKEEPER,
     2: Prisma.Position.DEFENDER,
@@ -41,7 +48,7 @@ async function main() {
     4: Prisma.Position.FORWARD,
   };
 
-  // Upsert players
+  // Обновляем или создаём игроков и связываем их с командами по fplId
   for (const el of elements) {
     await prisma.player.upsert({
       where: { fplId: el.id },
@@ -84,13 +91,13 @@ async function main() {
       },
     });
   }
-  console.log(`Upserted ${elements.length} players`);
+  logger.info(`Upserted ${elements.length} players`);
 
   await disconnectDB();
-  console.log('✅ FPL sync completed successfully');
+  logger.info('✅ FPL sync completed successfully');
 }
 
 main().catch((err) => {
-  console.error(err);
+  logger.error(err);
   disconnectDB().catch(() => {});
 });

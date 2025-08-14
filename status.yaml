@@ -1,5 +1,5 @@
 # FPL Platform - Status File
-# Updated: 2025-08-13 22:18
+# Updated: 2025-08-14 19:54
 # Chat ID: initial_development_session
 # GitHub: https://github.com/Sukhrobv/fpl-platform
 
@@ -7,15 +7,15 @@ project_info:
   name: "FPL Analytics Platform"
   version: "0.1.0"
   status: "Active Development"
-  last_sync: "2025-08-13 22:18"
+  last_sync: "2025-08-14 19:54"
   repository: "https://github.com/Sukhrobv/fpl-platform"
   description: "Personal FPL analytics tool with Next.js monolith architecture"
 
 current_position:
   chapter: 1
-  stage: "1.3"
+  stage: "1.4"
   substage: "Completed"
-  description: "Базовая инфраструктура кода – подготовлены API‑роуты, клиент FPL и скрипт синхронизации"
+  description: "Инструменты разработки – добавлены логирование, тесты, Makefile"
 
 progress:
   completed_chapters:
@@ -69,19 +69,35 @@ progress:
                 - "app/api/players/route.ts - Players API route"
                 - "lib/fplClient.ts - FPL API client"
                 - "scripts/sync-fpl.ts - FPL sync script"
+          - stage_1_4:
+              name: "Инструменты разработки"
+              completed: true
+              date: "2025-08-14 19:54"
+              artifacts:
+                - "lib/logger.ts - Структурированный логгер"
+                - "scripts/sync-fpl.js - Обновлён со Structured Logging"
+                - "tests/logger.test.ts - Базовый тест логгера"
+                - "Makefile - Сборник команд"
+                - "README-dev-tools.md - Инструкция по инструментам"
+              accomplishments:
+                - "Единая система логирования внедрена"
+                - "Создана базовая структура unit-тестов"
+                - "Добавлен Makefile для удобного запуска команд"
+                - "Подготовлена документация для разработчиков"
 
   current_work:
-    task: "Ожидание разрешения на переход к этапу 1.4"
-    started: "2025-08-13 22:18"
+    task: "Ожидание разрешения на начало этапа 2.1"
+    started: "2025-08-14 19:54"
     blockers: []
-    notes: "Этап 1.3 завершён; подготовлены клиент и скрипт синхронизации."
+    notes: "Этап 1.4 завершён; готовы перейти к исследованию FPL API"
 
   next_steps:
-    immediate: "Получить разрешение на начало этапа 1.4: Инструменты разработки (логирование, тесты)"
+    immediate: "Получить разрешение на начало этапа 2.1: Полное исследование FPL API"
     upcoming:
-      - "Этап 1.4: Инструменты разработки (логирование, тесты)"
-      - "Глава 2: Интеграция FPL API"
-      - "Глава 3: Маппинг и внешние данные"
+      - "Этап 2.1: Полное исследование FPL API (описание всех endpoint)"
+      - "Этап 2.2: FPL collector (async клиент, обработка ошибок, rate limiting)"
+      - "Этап 2.3: Загрузка данных FPL (первичная загрузка и обновления)"
+      - "Этап 2.4: API для FPL данных"
 
 technical_stack:
   confirmed:
@@ -157,17 +173,13 @@ code_artifacts:
     path: "/scripts/"
     status: "created"
     description: "Script to fetch FPL data and upsert teams/players into DB"
+  - artifact_id: "dev-tools"
+    filename: "logger.ts, sync-fpl.js, logger.test.ts, Makefile, README-dev-tools.md"
+    path: "/"
+    status: "created"
+    description: "Logging, tests and developer tooling files created in stage 1.4"
 
 decisions_log:
   - date: "2025-08-13"
     decision: "Use Next.js monolith instead of Python backend"
     reasoning: "Simpler deployment, single language, developer expertise"
-  - date: "2025-08-13"
-    decision: "Choose Supabase for database hosting"
-    reasoning: "Free tier sufficient, easy setup, built-in tools"
-  - date: "2025-08-13"
-    decision: "TypeScript strict mode enabled"
-    reasoning: "Better type safety for complex data mappings"
-  - date: "2025-08-13 22:18"
-    decision: "Implement FPL API client and synchronization script"
-    reasoning: "Завершение этапа 1.3: необходима основа для интеграции данных в следующих главах"
