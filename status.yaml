@@ -1,5 +1,5 @@
 ﻿# FPL Platform - Status File
-# Updated: 2025-09-30 23:22
+# Updated: 2025-09-30 23:39
 # Chat ID: initial_development_session
 # GitHub: https://github.com/Sukhrobv/fpl-platform
 
@@ -7,15 +7,15 @@ project_info:
   name: "FPL Analytics Platform"
   version: "0.1.0"
   status: "Active Development"
-  last_sync: "2025-09-30 23:22"
+  last_sync: "2025-09-30 23:39"
   repository: "https://github.com/Sukhrobv/fpl-platform"
   description: "Personal FPL analytics tool with Next.js monolith architecture"
 
 current_position:
   chapter: 2
-  stage: "2.2"
+  stage: "2.3"
   substage: "Completed"
-  description: "Async FPL collector implemented with validation, retries, and rate limiting"
+  description: "Initial FPL data load using async collector and Prisma upserts"
 
 progress:
   completed_chapters:
@@ -107,17 +107,28 @@ progress:
                 highlights:
                   - "Implemented queue with configurable rate limiting and exponential backoff"
                   - "Validated FPL payloads using Zod schemas"
+              - stage_2_3:
+                  name: "FPL data loading"
+                  completed: true
+                  date: "2025-09-30 23:39"
+                  artifacts:
+                    - "lib/services/fplSync.ts - Orchestrates teams, players, fixtures, and stats persistence"
+                    - "scripts/sync-fpl.ts - CLI entrypoint for full FPL sync with configurable throttle"
+                    - "tests/fplSync.test.ts - Transformation coverage for sync helpers"
+                  highlights:
+                    - "Implemented Prisma upserts for teams, players, fixtures, and player stats"
+                    - "SyncLog entries now capture duration and record counts per run"
   current_work:
     task: null
     started: null
     blockers: []
-    notes: "Waiting for approval to begin stage 2.3 (FPL data loading)."
+    notes: "Waiting for approval to begin stage 2.4 (FPL data API)."
 
   next_steps:
-    immediate: "Awaiting approval to start stage 2.3: FPL data loading (initial load and incremental updates)"
+    immediate: "Awaiting approval to start stage 2.4: API for FPL data"
     upcoming:
-      - "Stage 2.3: FPL data loading (initial load and incremental updates)"
       - "Stage 2.4: API for FPL data"
+      - "Stage 3.1: External data integration (Sofascore mapping)"
 
 technical_stack:
   confirmed:
@@ -157,59 +168,73 @@ technical_stack:
       - "tsx: ^4.19.2"
 
 code_artifacts:
-  - artifact_id: "project-setup-commands"
-    type: "documentation"
-    description: "Setup instructions"
-    status: "completed"
-  - artifact_id: "prisma-schema-complete"
-    filename: "schema.prisma"
-    path: "/prisma/"
-    status: "deployed"
-    description: "Complete DB schema with mapping focus"
-  - artifact_id: "env-config-setup"
-    filename: "env.ts"
-    path: "/lib/"
-    status: "deployed"
-  - artifact_id: "prisma-client-setup"
-    filename: "db.ts"
-    path: "/lib/"
-    status: "deployed"
-  - artifact_id: "types-definitions"
-    filename: "index.ts"
-    path: "/types/"
-    status: "deployed"
-  - artifact_id: "test-db-script"
-    filename: "test-db.ts"
-    path: "/scripts/"
-    status: "deployed"
-    test_result: "✅ Passed successfully"
-  - artifact_id: "fpl-api-client"
-    filename: "fplClient.ts"
-    path: "/lib/"
-    status: "created"
-    description: "HTTP client for the public FPL API"
-  - artifact_id: "fpl-sync-script"
-    filename: "sync-fpl.ts"
-    path: "/scripts/"
-    status: "created"
-    description: "Script to fetch FPL data and upsert teams/players into DB"
-  - artifact_id: "dev-tools"
-    filename: "logger.ts, sync-fpl.js, logger.test.ts, Makefile, README-dev-tools.md"
-    path: "/"
-    status: "created"
-    description: "Logging, tests and developer tooling files created in stage 1.4"
-
+    - artifact_id: "project-setup-commands"
+      type: "documentation"
+      description: "Setup instructions"
+      status: "completed"
+    - artifact_id: "prisma-schema-complete"
+      filename: "schema.prisma"
+      path: "/prisma/"
+      status: "deployed"
+      description: "Complete DB schema with mapping focus"
+    - artifact_id: "env-config-setup"
+      filename: "env.ts"
+      path: "/lib/"
+      status: "deployed"
+    - artifact_id: "prisma-client-setup"
+      filename: "db.ts"
+      path: "/lib/"
+      status: "deployed"
+    - artifact_id: "types-definitions"
+      filename: "index.ts"
+      path: "/types/"
+      status: "deployed"
+    - artifact_id: "test-db-script"
+      filename: "test-db.ts"
+      path: "/scripts/"
+      status: "deployed"
+      test_result: "Passed successfully"
+    - artifact_id: "fpl-api-client"
+      filename: "fplClient.ts"
+      path: "/lib/"
+      status: "created"
+      description: "HTTP client for the public FPL API"
+    - artifact_id: "fpl-sync-script"
+      filename: "sync-fpl.ts"
+      path: "/scripts/"
+      status: "created"
+      description: "CLI script (tsx) to run end-to-end FPL sync via collector"
+    - artifact_id: "dev-tools"
+      filename: "logger.ts, sync-fpl.js, logger.test.ts, Makefile, README-dev-tools.md"
+      path: "/"
+      status: "created"
+      description: "Logging, tests and developer tooling files created in stage 1.4"
     - artifact_id: "fpl-api-documentation"
       filename: "fpl_api_documentation.md"
       path: "/"
       status: "created"
       description: "FPL API endpoint overview and sync guidance"
+    - artifact_id: "fpl-sync-service"
+      filename: "fplSync.ts"
+      path: "/lib/services"
+      status: "created"
+      description: "Service orchestrating team/player/fixture upserts and SyncLog recording"
+    - artifact_id: "fpl-sync-tests"
+      filename: "fplSync.test.ts"
+      path: "/tests"
+      status: "created"
+      description: "Unit tests covering sync transformations and helpers"
     - artifact_id: "fpl-collector"
       filename: "fplCollector.ts"
       path: "/lib/collectors"
       status: "created"
       description: "Configured async FPL collector with retries and rate limiting"
+
 decisions_log:
   - date: "2025-08-13"
     decision: "Use Next.js monolith instead of Python backend"
     reasoning: "Simpler deployment, single language, developer expertise"
+
+
+
+
