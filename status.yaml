@@ -1,5 +1,5 @@
-# FPL Platform - Status File
-# Updated: 2025-08-14 19:54
+﻿# FPL Platform - Status File
+# Updated: 2025-09-30 23:22
 # Chat ID: initial_development_session
 # GitHub: https://github.com/Sukhrobv/fpl-platform
 
@@ -7,15 +7,15 @@ project_info:
   name: "FPL Analytics Platform"
   version: "0.1.0"
   status: "Active Development"
-  last_sync: "2025-08-14 19:54"
+  last_sync: "2025-09-30 23:22"
   repository: "https://github.com/Sukhrobv/fpl-platform"
   description: "Personal FPL analytics tool with Next.js monolith architecture"
 
 current_position:
-  chapter: 1
-  stage: "1.4"
+  chapter: 2
+  stage: "2.2"
   substage: "Completed"
-  description: "Инструменты разработки – добавлены логирование, тесты, Makefile"
+  description: "Async FPL collector implemented with validation, retries, and rate limiting"
 
 progress:
   completed_chapters:
@@ -85,19 +85,39 @@ progress:
                 - "Добавлен Makefile для удобного запуска команд"
                 - "Подготовлена документация для разработчиков"
 
+      - chapter_2_partial:
+          name: "FPL Integration (base source)"
+          stages:
+            - stage_2_1:
+                name: "Full FPL API research"
+                completed: true
+                date: "2025-09-30 22:58"
+                artifacts:
+                  - "fpl_api_documentation.md - Endpoint catalogue, rate limits, and sync priorities"
+                highlights:
+                  - "Documented public and authenticated FPL endpoints"
+                  - "Outlined polling cadence and caching guidance for collectors"
+            - stage_2_2:
+                name: "FPL collector (async client)"
+                completed: true
+                date: "2025-09-30 23:22"
+                artifacts:
+                  - "lib/collectors/fplCollector.ts - Async collector with retry, rate limiting, validation"
+                  - "tests/fplCollector.test.ts - Unit tests for retry and validation"
+                highlights:
+                  - "Implemented queue with configurable rate limiting and exponential backoff"
+                  - "Validated FPL payloads using Zod schemas"
   current_work:
-    task: "Ожидание разрешения на начало этапа 2.1"
-    started: "2025-08-14 19:54"
+    task: null
+    started: null
     blockers: []
-    notes: "Этап 1.4 завершён; готовы перейти к исследованию FPL API"
+    notes: "Waiting for approval to begin stage 2.3 (FPL data loading)."
 
   next_steps:
-    immediate: "Получить разрешение на начало этапа 2.1: Полное исследование FPL API"
+    immediate: "Awaiting approval to start stage 2.3: FPL data loading (initial load and incremental updates)"
     upcoming:
-      - "Этап 2.1: Полное исследование FPL API (описание всех endpoint)"
-      - "Этап 2.2: FPL collector (async клиент, обработка ошибок, rate limiting)"
-      - "Этап 2.3: Загрузка данных FPL (первичная загрузка и обновления)"
-      - "Этап 2.4: API для FPL данных"
+      - "Stage 2.3: FPL data loading (initial load and incremental updates)"
+      - "Stage 2.4: API for FPL data"
 
 technical_stack:
   confirmed:
@@ -179,6 +199,16 @@ code_artifacts:
     status: "created"
     description: "Logging, tests and developer tooling files created in stage 1.4"
 
+    - artifact_id: "fpl-api-documentation"
+      filename: "fpl_api_documentation.md"
+      path: "/"
+      status: "created"
+      description: "FPL API endpoint overview and sync guidance"
+    - artifact_id: "fpl-collector"
+      filename: "fplCollector.ts"
+      path: "/lib/collectors"
+      status: "created"
+      description: "Configured async FPL collector with retries and rate limiting"
 decisions_log:
   - date: "2025-08-13"
     decision: "Use Next.js monolith instead of Python backend"

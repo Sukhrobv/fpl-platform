@@ -227,3 +227,173 @@ export interface PaginatedResponse<T> {
   pageSize: number;
   totalPages: number;
 }
+// FPL Fixture types
+export interface FPLFixtureStatEntry {
+  element: number;
+  value: number;
+}
+
+export interface FPLFixtureStat {
+  identifier: string;
+  a: FPLFixtureStatEntry[];
+  h: FPLFixtureStatEntry[];
+}
+
+export interface FPLFixture {
+  id: number;
+  code: number;
+  event: number | null;
+  finished: boolean;
+  finished_provisional: boolean;
+  kickoff_time: string | null;
+  minutes: number;
+  provisional_start_time: boolean;
+  started: boolean;
+  team_a: number;
+  team_a_score: number | null;
+  team_h: number;
+  team_h_score: number | null;
+  stats: FPLFixtureStat[];
+  team_h_difficulty: number;
+  team_a_difficulty: number;
+  pulse_id: number;
+}
+
+// FPL live event types
+export interface FPLPlayerLiveStats {
+  minutes: number;
+  goals_scored: number;
+  assists: number;
+  clean_sheets: number;
+  goals_conceded: number;
+  own_goals: number;
+  penalties_saved: number;
+  penalties_missed: number;
+  yellow_cards: number;
+  red_cards: number;
+  saves: number;
+  bonus: number;
+  bps: number;
+  influence: string;
+  creativity: string;
+  threat: string;
+  ict_index: string;
+  starts: number;
+  expected_goals: string;
+  expected_assists: string;
+  expected_goal_involvements: string;
+  expected_goals_conceded: string;
+  total_points: number;
+}
+
+export interface FPLLiveElementExplainStat {
+  identifier: string;
+  points: number;
+  value: number;
+  points_modification: number;
+}
+
+export interface FPLLiveElementExplain {
+  fixture: number;
+  stats: FPLLiveElementExplainStat[];
+}
+
+export interface FPLLiveElement {
+  id: number;
+  stats: FPLPlayerLiveStats;
+  explain: FPLLiveElementExplain[];
+  modified: boolean;
+}
+
+export interface FPLEventLiveResponse {
+  elements: FPLLiveElement[];
+}
+
+// FPL player summary types
+export interface FPLPlayerSummaryFixture {
+  id: number;
+  code: number;
+  event: number | null;
+  kickoff_time: string | null;
+  team_h: number;
+  team_a: number;
+  is_home: boolean;
+  difficulty: number;
+  finished: boolean;
+  minutes: number;
+}
+
+export interface FPLPlayerHistoryEntry {
+  element: number;
+  fixture: number;
+  opponent_team: number;
+  total_points: number;
+  was_home: boolean;
+  kickoff_time: string;
+  team_h_score: number;
+  team_a_score: number;
+  round: number;
+  minutes: number;
+  goals_scored: number;
+  assists: number;
+  clean_sheets: number;
+  goals_conceded: number;
+  own_goals: number;
+  penalties_saved: number;
+  penalties_missed: number;
+  yellow_cards: number;
+  red_cards: number;
+  saves: number;
+  bonus: number;
+  bps: number;
+  influence: string;
+  creativity: string;
+  threat: string;
+  ict_index: string;
+  starts: number;
+  expected_goals: string;
+  expected_assists: string;
+  expected_goal_involvements: string;
+  expected_goals_conceded: string;
+  value: number;
+  transfers_balance: number;
+  selected: number;
+  transfers_in: number;
+  transfers_out: number;
+}
+
+export interface FPLPlayerSeasonSummary {
+  season_name: string;
+  element_code: number;
+  start_cost: number;
+  end_cost: number;
+  total_points: number;
+  minutes: number;
+  goals_scored: number;
+  assists: number;
+  clean_sheets: number;
+  goals_conceded: number;
+  own_goals: number;
+  penalties_saved: number;
+  penalties_missed: number;
+  yellow_cards: number;
+  red_cards: number;
+  saves: number;
+  bonus: number;
+  bps: number;
+  influence: string;
+  creativity: string;
+  threat: string;
+  ict_index: string;
+  starts: number;
+  expected_goals: string;
+  expected_assists: string;
+  expected_goal_involvements: string;
+  expected_goals_conceded: string;
+}
+
+export interface FPLPlayerSummary {
+  fixtures: FPLPlayerSummaryFixture[];
+  history: FPLPlayerHistoryEntry[];
+  history_past: FPLPlayerSeasonSummary[];
+}
