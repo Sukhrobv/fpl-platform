@@ -5,6 +5,109 @@
 
 project_info:
   name: "FPL Analytics Platform"
+  version: "0.1.0"
+  status: "Active Development"
+  last_sync: "2025-11-20"
+  repository: "https://github.com/Sukhrobv/fpl-platform"
+  description: "Personal FPL analytics tool with Next.js monolith architecture"
+
+current_position:
+  chapter: 3
+  stage: "3.4"
+  substage: "Completed"
+  description: "Predictive Algorithm (xPts) implemented and linked to fixtures"
+
+progress:
+  completed_chapters:
+    - chapter_0:
+        name: "Project Setup"
+        completed: true
+        date: "2025-08-13"
+        tasks:
+          - "Next.js 14.2.18 project created with TypeScript"
+          - "Tailwind CSS configured"
+          - "shadcn/ui initialized"
+          - "Prisma ORM installed and configured"
+          - "GitHub repository connected"
+          - "All dependencies installed"
+          - "README.md created"
+    - chapter_1_complete:
+        name: "Foundation & Architecture"
+        completed: true
+        stages:
+          - stage_1_1:
+              name: "Database Design & Mapping"
+              completed: true
+              date: "2025-08-13"
+          - stage_1_2:
+              name: "Environment Setup"
+              completed: true
+              date: "2025-08-13"
+          - stage_1_3:
+              name: "Base Code Infrastructure"
+              completed: true
+              date: "2025-08-13"
+          - stage_1_4:
+              name: "Dev Tools"
+              completed: true
+              date: "2025-08-14"
+    - chapter_2_complete:
+        name: "FPL Integration (base source)"
+        completed: true
+        stages:
+          - stage_2_1:
+              name: "FPL API Research"
+              completed: true
+              date: "2025-09-30"
+          - stage_2_2:
+              name: "FPL Collector"
+              completed: true
+              date: "2025-09-30"
+          - stage_2_3:
+              name: "FPL Data Loading"
+              completed: true
+              date: "2025-09-30"
+          - stage_2_4:
+              name: "API for FPL Data"
+              completed: true
+              date: "2025-11-20"
+    - chapter_3_partial:
+        name: "Data Integration"
+        stages:
+          - stage_3_1:
+              name: "Research External Sources"
+              completed: true
+              date: "2025-11-20"
+          - stage_3_2:
+              name: "Player Mapping Algorithm"
+              completed: true
+              date: "2025-11-20"
+          - stage_3_3:
+              name: "Understat Integration"
+              completed: true
+              date: "2025-11-20"
+          - stage_3_4:
+              name: "Predictive Algorithm (xPts)"
+              completed: true
+              date: "2025-11-20"
+
+  current_work:
+    task: "Preparing for UI Development"
+    started: "2025-11-20"
+    blockers: []
+    notes: "Prediction API is ready at /api/predictions"
+
+  next_steps:
+    immediate: "Start Stage 6.1: Basic UI (Prediction Table)"
+    upcoming:
+      - "Stage 6.2: Player Comparison"
+      - "Stage 7.1: Automation"
+
+technical_stack:
+  confirmed:
+    framework: "Next.js 14.2.18"
+    language: "TypeScript 5"
+    database: "PostgreSQL (Supabase)"
     orm: "Prisma 5.22.0"
     styling: "Tailwind CSS 3.4.1"
     ui_components: "shadcn/ui"
@@ -22,6 +125,11 @@ code_artifacts:
     path: "/lib/services/"
     status: "created"
     description: "Service for calculating xPts based on Understat data"
+  - artifact_id: "prediction-api"
+    filename: "route.ts"
+    path: "/app/api/predictions/"
+    status: "created"
+    description: "API endpoint for serving predictions"
   - artifact_id: "understat-integration"
     filename: "sync-understat.ts, understatCollector.ts"
     path: "/scripts/, /lib/collectors/"
