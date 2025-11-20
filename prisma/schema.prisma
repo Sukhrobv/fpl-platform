@@ -70,6 +70,7 @@ model Team {
   players        Player[]
   homeMatches    Match[]   @relation("HomeTeam")
   awayMatches    Match[]   @relation("AwayTeam")
+  externalStats  ExternalTeamStats[]
   
   // Timestamps
   createdAt      DateTime  @default(now())
@@ -293,6 +294,47 @@ model ExternalPlayerStats {
   @@index([gameweek])
   @@index([source])
   @@map("external_player_stats")
+}
+
+model ExternalTeamStats {
+  id              Int       @id @default(autoincrement())
+  
+  // Relations
+  teamId         Int
+  team           Team      @relation(fields: [teamId], references: [id])
+  gameweek       Int       // 0 for season total if needed, or actual GW
+  source         String    // "understat"
+  
+  // Match Context
+  matchDate      DateTime
+  isHome         Boolean
+  opponentId     Int?      // If we can map it
+  
+  // Stats
+  goals          Int
+  goalsConceded  Int
+  xG             Float
+  xGA            Float     // Expected Goals Allowed
+  npxG           Float
+  npxGA          Float
+  deep           Int       // Passes completed within 20y of goal
+  deepAllowed    Int
+  ppda           Float     // Passes allowed per defensive action (Pressing intensity)
+  ppdaAllowed    Float     // Opponent's PPDA
+  xpts           Float     // Expected points
+  
+  // Result
+  result         String    // "w", "d", "l"
+  points         Int
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  @@unique([teamId, matchDate, source])
+  @@index([teamId])
+  @@index([source])
+  @@map("external_team_stats")
 }
 
 // ============================================

@@ -5,22 +5,6 @@
 
 project_info:
   name: "FPL Analytics Platform"
-  version: "0.1.0"
-  status: "Active Development"
-  last_sync: "2025-09-30 23:39"
-  repository: "https://github.com/Sukhrobv/fpl-platform"
-  description: "Personal FPL analytics tool with Next.js monolith architecture"
-
-current_position:
-  chapter: 3
-  stage: "3.1"
-  substage: "Ready to Start"
-  description: "Researching external data sources (Sofascore, Understat) and mapping strategies"
-
-progress:
-  completed_chapters:
-    - chapter_0:
-        name: "Project Setup"
         completed: true
         date: "2025-08-13"
         tasks:
