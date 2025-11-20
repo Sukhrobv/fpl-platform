@@ -148,6 +148,8 @@ export async function GET(request: Request) {
       // Add fixture info to result
       return {
         ...prediction,
+        position: player.position,
+        price: player.nowCost,
         fixture: `${isHome ? '(H)' : '(A)'} vs ${opponentTeam.name}`
       };
 
