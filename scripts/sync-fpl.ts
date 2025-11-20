@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env tsx
+﻿
 
 import { connectDB, disconnectDB, prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
