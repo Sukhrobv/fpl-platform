@@ -5,103 +5,6 @@
 
 project_info:
   name: "FPL Analytics Platform"
-  version: "0.1.0"
-  status: "Active Development"
-  last_sync: "2025-11-20"
-  repository: "https://github.com/Sukhrobv/fpl-platform"
-  description: "Personal FPL analytics tool with Next.js monolith architecture"
-
-current_position:
-  chapter: 3
-  stage: "3.4"
-  substage: "In Progress"
-  description: "Implementing xPts Predictive Model (based on Blueprint)"
-
-progress:
-  completed_chapters:
-    - chapter_0:
-        name: "Project Setup"
-        completed: true
-        date: "2025-08-13"
-        tasks:
-          - "Next.js 14.2.18 project created with TypeScript"
-          - "Tailwind CSS configured"
-          - "shadcn/ui initialized"
-          - "Prisma ORM installed and configured"
-          - "GitHub repository connected"
-          - "All dependencies installed"
-          - "README.md created"
-    - chapter_1_partial:
-        name: "Фундамент и архитектура"
-        stages:
-          - stage_1_1:
-              name: "Проектирование БД и маппинга"
-              completed: true
-              date: "2025-08-13"
-          - stage_1_2:
-              name: "Настройка окружения"
-              completed: true
-              date: "2025-08-13"
-          - stage_1_3:
-              name: "Базовая инфраструктура кода"
-              completed: true
-              date: "2025-08-13"
-          - stage_1_4:
-              name: "Инструменты разработки"
-              completed: true
-              date: "2025-08-14"
-      - chapter_2_complete:
-          name: "FPL Integration (base source)"
-          stages:
-            - stage_2_1:
-                name: "Full FPL API research"
-                completed: true
-                date: "2025-09-30"
-            - stage_2_2:
-                name: "FPL collector (async client)"
-                completed: true
-                date: "2025-09-30"
-            - stage_2_3:
-                name: "FPL data loading"
-                completed: true
-                date: "2025-09-30"
-            - stage_2_4:
-                name: "API for FPL data"
-                completed: true
-                date: "2025-11-20"
-      - chapter_3_partial:
-          name: "Data Integration"
-          stages:
-            - stage_3_1:
-                name: "Research external data sources"
-                completed: true
-                date: "2025-11-20"
-            - stage_3_2:
-                name: "Player mapping algorithm"
-                completed: true
-                date: "2025-11-20"
-            - stage_3_3:
-                name: "Understat integration"
-                completed: true
-                date: "2025-11-20"
-
-  current_work:
-    task: "Implementing xPts Predictive Model"
-    started: "2025-11-20"
-    blockers: []
-    notes: "Using Multi-Factor Model from xPts Blueprint."
-
-  next_steps:
-    immediate: "Create PredictionService and test with real data"
-    upcoming:
-      - "Stage 3.5: Verify Predictions"
-      - "Stage 6.1: Basic UI"
-
-technical_stack:
-  confirmed:
-    framework: "Next.js 14.2.18"
-    language: "TypeScript 5"
-    database: "PostgreSQL (Supabase)"
     orm: "Prisma 5.22.0"
     styling: "Tailwind CSS 3.4.1"
     ui_components: "shadcn/ui"
@@ -114,13 +17,13 @@ technical_stack:
     status: "Connected and operational"
 
 code_artifacts:
-    - artifact_id: "prediction-service"
-      filename: "predictionService.ts"
-      path: "/lib/services/"
-      status: "created"
-      description: "Service for calculating xPts based on Understat data"
-    - artifact_id: "understat-integration"
-      filename: "sync-understat.ts, understatCollector.ts"
-      path: "/scripts/, /lib/collectors/"
-      status: "completed"
-      description: "Scraping and syncing Understat data"
+  - artifact_id: "prediction-service"
+    filename: "predictionService.ts"
+    path: "/lib/services/"
+    status: "created"
+    description: "Service for calculating xPts based on Understat data"
+  - artifact_id: "understat-integration"
+    filename: "sync-understat.ts, understatCollector.ts"
+    path: "/scripts/, /lib/collectors/"
+    status: "completed"
+    description: "Scraping and syncing Understat data"
