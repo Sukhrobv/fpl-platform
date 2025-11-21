@@ -92,16 +92,16 @@ progress:
               date: "2025-11-20"
 
   current_work:
-    task: "Preparing for UI Development"
-    started: "2025-11-20"
+    task: "Validation & Calibration (Phase C)"
+    started: "2025-11-21"
     blockers: []
-    notes: "Prediction API is ready at /api/predictions"
+    notes: "Phase B (Event Model) complete. xPts algorithm now includes role-based personality and opponent context."
 
   next_steps:
-    immediate: "Start Stage 6.1: Basic UI (Prediction Table)"
+    immediate: "Validate predictions against actual GW data"
     upcoming:
-      - "Stage 6.2: Player Comparison"
-      - "Stage 7.1: Automation"
+      - "Phase C: Position-specific meta-models"
+      - "Phase D2: Penalty & Set-Pieces (when data available)"
 
 technical_stack:
   confirmed:

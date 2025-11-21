@@ -21,6 +21,7 @@ export interface PlayerInput {
   keyPasses90_recent?: number;
   // Minutes
   minutes_recent: number; // Total minutes in last 5 games (for form weight)
+  season_minutes: number; // Total minutes this season (for dynamic share bounds)
   start_probability: number; // 0-1
 }
 
@@ -38,6 +39,9 @@ export interface TeamInput {
   xGA90_recent?: number;
   deep_recent?: number;
   ppda_recent?: number;
+  // Phase B3/B4: New context fields
+  shotsAllowed90?: number; // For shot volume adjustment
+  savesFactor?: number;    // Team-specific GK save ability (default 1.0)
 }
 
 export interface LeagueAverages {
@@ -76,10 +80,49 @@ const LEAGUE_AVERAGES_DEFAULT: LeagueAverages = {
   avg_ppda: 12.0, // Estimated
 };
 
-const HOME_ATTACK_MULTIPLIER = 1.08;
-const AWAY_ATTACK_MULTIPLIER = 0.92;
-const HOME_DEFENSE_MULTIPLIER = 0.92; // Concede less at home
-const AWAY_DEFENSE_MULTIPLIER = 1.08; // Concede more away
+// v2 Quick Fixes D1: Position scaling to fix GK/DEF overvaluation and FWD undervaluation
+const POSITION_SCALE_FACTORS: Record<Position, number> = {
+  FORWARD: 1.15,     // Boost forwards by 15%
+  MIDFIELDER: 1.10,  // Boost midfielders by 10%
+  DEFENDER: 0.92,    // Reduce defenders by 8%
+  GOALKEEPER: 0.85   // Reduce goalkeepers by 15%
+};
+
+// v2 Quick Fixes D1: Hard clips per position to prevent outliers
+const POSITION_BOUNDS: Record<Position, { min: number; max: number }> = {
+  GOALKEEPER: { min: 2.0, max: 5.5 },
+  DEFENDER: { min: 2.5, max: 6.0 },
+  MIDFIELDER: { min: 2.0, max: 8.5 },
+  FORWARD: { min: 2.0, max: 9.0 }
+};
+
+// Phase B2: Player roles for personality-based predictions
+type PlayerRole = 
+  | "Poacher" 
+  | "CompleteForward" 
+  | "Playmaker" 
+  | "BoxToBox" 
+  | "Winger" 
+  | "AttackingDefender" 
+  | "StandardDefender" 
+  | "Goalkeeper";
+
+interface RolePriors {
+  gShare: number;
+  aShare: number;
+}
+
+// Phase B2: Role-based gShare/aShare priors
+const ROLE_PRIORS: Record<PlayerRole, RolePriors> = {
+  Poacher: { gShare: 0.45, aShare: 0.15 },           // High goal threat, low creativity
+  CompleteForward: { gShare: 0.35, aShare: 0.25 },   // Balanced goal + assist threat
+  Playmaker: { gShare: 0.15, aShare: 0.35 },         // High creativity, moderate goals
+  BoxToBox: { gShare: 0.25, aShare: 0.25 },          // Balanced attacking midfielder
+  Winger: { gShare: 0.20, aShare: 0.30 },            // Wide player, assists > goals
+  AttackingDefender: { gShare: 0.08, aShare: 0.05 }, // Set-piece threat
+  StandardDefender: { gShare: 0.03, aShare: 0.02 },  // Minimal attacking threat
+  Goalkeeper: { gShare: 0.00, aShare: 0.00 }         // No attacking contribution
+};
 
 // ==========================================
 // Service Class
@@ -103,7 +146,6 @@ export class PredictionService {
 
     const xG90 = this.blend(player.xG90_season, player.xG90_recent, blendAlpha, formWeight);
     const xA90 = this.blend(player.xA90_season, player.xA90_recent, blendAlpha, formWeight);
-    const shots90 = this.blend(player.shots90_season, player.shots90_recent, blendAlpha, formWeight);
     
     // Team Blends (using 0.55 alpha for teams as per blueprint)
     const teamAlpha = 0.55;
@@ -111,55 +153,44 @@ export class PredictionService {
     
     const team_xG90 = this.blend(team.xG90_season, team.xG90_recent, teamAlpha, teamFormWeight);
     const team_xGA90 = this.blend(team.xGA90_season, team.xGA90_recent, teamAlpha, teamFormWeight);
-    const team_deep = this.blend(team.deep_season, team.deep_recent, teamAlpha, teamFormWeight);
     
     const opp_xG90 = this.blend(opponent.xG90_season, opponent.xG90_recent, teamAlpha, teamFormWeight);
     const opp_xGA90 = this.blend(opponent.xGA90_season, opponent.xGA90_recent, teamAlpha, teamFormWeight);
     const opp_deep = this.blend(opponent.deep_season, opponent.deep_recent, teamAlpha, teamFormWeight);
     const opp_ppda = this.blend(opponent.ppda_season, opponent.ppda_recent, teamAlpha, teamFormWeight);
 
-    // 2. Context Multipliers (Home/Away)
-    const h_att = team.isHome ? HOME_ATTACK_MULTIPLIER : AWAY_ATTACK_MULTIPLIER;
-    const h_def = team.isHome ? HOME_DEFENSE_MULTIPLIER : AWAY_DEFENSE_MULTIPLIER;
-
     // 3. Fixture Difficulty (Opponent Factors)
-    const r_xGA = opp_xGA90 / leagueAvg.avg_xGA;
-    const r_deep = opp_deep / leagueAvg.avg_deep;
     const r_ppda = opp_ppda / leagueAvg.avg_ppda;
 
-    const f_xG = Math.pow(r_xGA, 0.65) * Math.pow(r_deep, 0.35);
-    const f_xA = Math.pow(r_xGA, 0.50) * Math.pow(r_deep, 0.40) * Math.pow(r_ppda, 0.20);
-
-    // 4. Team Expectations (Lambdas)
-    // Expected goals for our team
-    const lambda_att = team_xG90 * h_att * f_xG;
-    
-    // Expected goals conceded by our team (Opponent attack strength vs Our defense)
-    // Note: Blueprint says: xG90_O * H_def * (xGA90_T / avg_xGA)^0.7 * (Deep_T / avg_deep)^0.3
-    const r_team_xGA = team_xGA90 / leagueAvg.avg_xGA;
-    const r_team_deep = team_deep / leagueAvg.avg_deep; // Deep allowed by us? Blueprint says DeepAllowed_T
-    // Assuming team.deep_season is "Deep Completed". We need "Deep Allowed". 
-    // For now, let's assume deep_season in input is "Deep Allowed" for defensive calc? 
-    // Actually, let's strictly follow input interface. I defined `deep_season`. 
-    // I should probably clarify if it's deep allowed.
-    // Let's assume for defense we need Deep Allowed. I'll add it to interface later or assume deep_season is generic.
-    // For this implementation, I'll use team_xGA as the primary driver if deep is missing.
-    
-    const lambda_def = opp_xG90 * h_def * Math.pow(r_team_xGA, 0.70); // Simplified without deep allowed for now
+    // Phase A2: Log-linear lambdas for realistic variance
+    const lambda_att = this.lambdaAttack(team_xG90, opp_xGA90, opp_deep, team.isHome, leagueAvg);
+    const lambda_def = this.lambdaDefense(opp_xG90, team_xGA90, opp_deep, team.isHome, leagueAvg);
 
     const prob_cs = Math.exp(-lambda_def);
 
-    // 5. Player Shares
+    // 5. Player Shares with Role-Based Personality (Phase B2)
     // Avoid division by zero
     const team_xG_base = Math.max(team_xG90, 0.1);
     
-    // Share of team's xG that this player accounts for
-    let gShare = xG90 / team_xG_base;
-    let aShare = xA90 / team_xG_base;
+    // Raw shares from player stats
+    const gShare_raw = xG90 / team_xG_base;
+    const aShare_raw = xA90 / team_xG_base;
     
-    // Clip shares to reasonable limits (3% to 65%)
-    gShare = Math.max(0.03, Math.min(gShare, 0.65));
-    aShare = Math.max(0.03, Math.min(aShare, 0.65));
+    // Phase B2: Infer player role and apply Empirical Bayes shrinkage
+    const role = this.inferPlayerRole(player.position, xG90, xA90);
+    const priors = ROLE_PRIORS[role];
+    
+    // Empirical Bayes: shrink toward role prior based on sample size (minutes)
+    // Low minutes → strong shrinkage toward prior
+    // High minutes → use raw shares
+    const shrinkage = Math.min(0.7, 180 / Math.max(1, player.season_minutes));
+    let gShare = (1 - shrinkage) * gShare_raw + shrinkage * priors.gShare;
+    let aShare = (1 - shrinkage) * aShare_raw + shrinkage * priors.aShare;
+    
+    // v2 Quick Fix D3: Apply dynamic share bounds
+    const shareBounds = this.getShareBounds(player.season_minutes);
+    gShare = Math.max(shareBounds.floor, Math.min(gShare, shareBounds.cap));
+    aShare = Math.max(shareBounds.floor, Math.min(aShare, shareBounds.cap));
 
     // 6. Minutes / Nailedness
     // Simplified model: Expected Minutes = start_prob * avg_mins + (1-start_prob) * cameo_mins
@@ -178,9 +209,24 @@ export class PredictionService {
     const prob_60 = player.start_probability * (player.position === "GOALKEEPER" ? 0.99 : 0.85);
     const prob_app = player.start_probability + ((1 - player.start_probability) * cameo_prob);
 
+    // Phase B3: Opponent Context Factors (Shot Volume & Quality)
+    // Adjust xG/xA based on opponent's shot volume allowed
+    const opp_shots_allowed = opponent.shotsAllowed90 || 12.0; // fallback to league avg
+    const league_avg_shots = 12.0;
+    const shot_volume_factor = Math.pow(opp_shots_allowed / league_avg_shots, 0.25);
+    
+    // Quality adjustment is implicitly handled by lambda (xGA vs xG), 
+    // but we can add a small explicit factor if needed. 
+    // For now, let's stick to volume adjustment as per plan.
+
     // 7. Expected Events
-    const xG_hat = m_fac * lambda_att * gShare;
-    const xA_hat = m_fac * lambda_att * aShare * Math.pow(r_ppda, 0.20);
+    let xG_hat = m_fac * lambda_att * gShare;
+    let xA_hat = m_fac * lambda_att * aShare * Math.pow(r_ppda, 0.20);
+    
+    // Apply shot volume factor
+    xG_hat *= shot_volume_factor;
+    // xA is also affected by how open the game is
+    xA_hat *= shot_volume_factor;
 
     // 8. Points Calculation
     
@@ -199,41 +245,47 @@ export class PredictionService {
       pts_cs = 4 * prob_cs * prob_60;
     }
     
-    // Defense (GC Penalty)
+    // Defense (GC Penalty) - Phase A3: GK Balance
     let pts_gc = 0;
     if (player.position === "DEFENDER" || player.position === "GOALKEEPER") {
-      // Expected goals conceded * 0.5 points lost per goal (approx -1 per 2 goals)
-      // Poisson expectation E[floor(X/2)] is roughly lambda/2 - 0.25 for lambda > 1... 
-      // Simple approximation: -0.5 * lambda
-      pts_gc = -0.5 * lambda_def * prob_60;
+      // Stricter penalty for GK
+      const gcPenalty = player.position === "GOALKEEPER" ? -0.60 : -0.50;
+      pts_gc = gcPenalty * lambda_def * prob_60;
     }
     
-    // Saves (GK only)
+    // Saves (GK only) - Phase A3: GK Balance
+    // Phase B4: Team-specific save factor
+    const team_saves_factor = team.savesFactor || 1.0;
+    const expected_saves = player.position === "GOALKEEPER" ? 2.1 * lambda_def * team_saves_factor : 0;
     let pts_saves = 0;
     if (player.position === "GOALKEEPER") {
-      // Est saves = 3.5 * xGA (roughly). Points = Saves / 3.
-      // Blueprint says: Saves approx 2.1 * lambda_def
-      const expected_saves = 2.1 * lambda_def;
-      pts_saves = (expected_saves / 3.0) * prob_60;
+      // Reduced saves coefficient
+      pts_saves = 0.75 * (expected_saves / 3.0) * prob_60; // was 1.0, now 0.75
     }
     
-    // Bonus
-    // Simplified bonus model
+    // Bonus - Phase A3 + B4: GK Balance with opponent quality adjustment
     let pts_bonus = 0;
     if (player.position === "FORWARD" || player.position === "MIDFIELDER") {
       pts_bonus = (0.28 * xG_hat) + (0.20 * xA_hat) + (0.10 * prob_cs);
     } else if (player.position === "DEFENDER") {
       pts_bonus = (0.70 * prob_cs) + (0.15 * (xG_hat + 0.7 * xA_hat));
-    } else { // GK
-      pts_bonus = (0.50 * prob_cs) + (0.15 * pts_saves) + (0.15 * (xG_hat + 0.7 * xA_hat));
+    } else { // GK - Phase B4: reduced bonus, adjusted by opponent quality
+      // Bonus should decrease when facing weak attacks
+      const opponent_quality = Math.min(1.5, opp_xG90 / leagueAvg.avg_xG);
+      const bonus_multiplier = 0.7 + 0.3 * opponent_quality; // 0.7-1.0 range
+      
+      pts_bonus = bonus_multiplier * ((0.45 * prob_cs) + (0.10 * (expected_saves / 3.0)));
     }
 
     const total_xPts = pts_app + pts_attack + pts_cs + pts_gc + pts_saves + pts_bonus;
 
+    // v2 Quick Fix D1: Apply position scaling and hard clips
+    const scaled_xPts = this.applyPositionCalibration(total_xPts, player.position);
+
     return {
       playerId: player.id,
       playerName: player.name,
-      xPts: Number(total_xPts.toFixed(2)),
+      xPts: Number(scaled_xPts.toFixed(2)),
       breakdown: {
         appearance: Number(pts_app.toFixed(2)),
         attack: Number(pts_attack.toFixed(2)),
@@ -265,5 +317,116 @@ export class PredictionService {
       case "FORWARD": return 79;
       default: return 80;
     }
+  }
+
+  /**
+   * v2 Quick Fix D3: Dynamic share bounds based on season minutes
+   * Prevents low-minute players from getting unrealistic shares
+   */
+  private getShareBounds(season_minutes: number): { floor: number; cap: number } {
+    if (season_minutes < 180) {
+      return { floor: 0.005, cap: 0.18 }; // Very low minutes: tight cap
+    } else if (season_minutes < 360) {
+      return { floor: 0.005, cap: 0.25 }; // Low minutes: moderate cap
+    } else {
+      return { floor: 0.03, cap: 0.65 }; // Regular players: standard bounds
+    }
+  }
+
+  /**
+   * v2 Quick Fix D1: Apply position scaling and hard clips
+   * Fixes GK/DEF overvaluation and FWD undervaluation
+   */
+  private applyPositionCalibration(rawXPts: number, position: Position): number {
+    // Apply position-specific scaling
+    const scaled = rawXPts * POSITION_SCALE_FACTORS[position];
+    
+    // Apply hard clips to prevent outliers
+    const bounds = POSITION_BOUNDS[position];
+    return Math.max(bounds.min, Math.min(scaled, bounds.max));
+  }
+
+  /**
+   * Phase A2: Log-linear lambda for attack
+   * Realistic variance by opponent and home/away
+   */
+  private lambdaAttack(
+    team_xG: number,
+    opp_xGA: number,
+    opp_deep: number,
+    home: boolean,
+    L: LeagueAverages
+  ): number {
+    const μ = 1.45;
+    const βA = 0.70;    // Team attack strength
+    const βD = 0.75;    // Opponent defense strength
+    const βDeep = 0.30; // Opponent deep allowed
+    const βH = 0.10;    // Home advantage
+
+    const val = Math.exp(
+      Math.log(μ) +
+      βA * Math.log(Math.max(0.05, team_xG) / L.avg_xG) -
+      βD * Math.log(Math.max(0.05, opp_xGA) / L.avg_xGA) +
+      βDeep * Math.log(Math.max(0.01, opp_deep) / L.avg_deep) +
+      βH * (home ? 1 : 0)
+    );
+
+    return Math.max(0.7, Math.min(2.6, val));
+  }
+
+  /**
+   * Phase A2: Log-linear lambda for defense
+   * Realistic variance by opponent and home/away
+   */
+  private lambdaDefense(
+    opp_xG: number,
+    team_xGA: number,
+    opp_deep: number,
+    home: boolean,
+    L: LeagueAverages
+  ): number {
+    const μ = 1.45;
+    const βA = 0.70;    // Opponent attack strength
+    const βD = 0.75;    // Team defense strength
+    const βDeep = 0.30; // Opponent deep (attacking pressure)
+    const βH = 0.10;    // Home advantage (defensive)
+
+    const val = Math.exp(
+      Math.log(μ) +
+      βA * Math.log(Math.max(0.05, opp_xG) / L.avg_xG) -
+      βD * Math.log(Math.max(0.05, team_xGA) / L.avg_xGA) +
+      βDeep * Math.log(Math.max(0.01, opp_deep) / L.avg_deep) -
+      βH * (home ? 1 : 0)
+    );
+
+    return Math.max(0.6, Math.min(2.3, val));
+  }
+
+  /**
+   * Phase B2: Infer player role from stats
+   * Automatically classifies players based on xG90/xA90 ratios
+   */
+  private inferPlayerRole(
+    position: Position,
+    xG90: number,
+    xA90: number
+  ): PlayerRole {
+    if (position === "GOALKEEPER") return "Goalkeeper";
+    
+    if (position === "DEFENDER") {
+      // Attacking defender if xG90 + xA90 > 0.10
+      return (xG90 + xA90) > 0.10 ? "AttackingDefender" : "StandardDefender";
+    }
+    
+    if (position === "MIDFIELDER") {
+      const ratio = xG90 / Math.max(0.01, xA90);
+      if (ratio > 1.2) return "BoxToBox";      // More goals than assists
+      if (ratio < 0.6) return "Playmaker";     // More assists than goals
+      return "Winger";                         // Balanced or slightly assist-heavy
+    }
+    
+    // FORWARD
+    const ratio = xG90 / Math.max(0.01, xA90);
+    return ratio > 2.0 ? "Poacher" : "CompleteForward";
   }
 }

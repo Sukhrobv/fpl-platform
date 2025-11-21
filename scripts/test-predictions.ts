@@ -54,7 +54,8 @@ async function main() {
       xG90_season: 1.3,
       xGA90_season: 1.4,
       deep_season: 5.0,
-      ppda_season: 12.0
+      ppda_season: 12.0,
+      shotsAllowed90: 14.5 // Phase B3: Slightly high shots allowed (open game)
     };
 
     // Calculate per 90 stats
@@ -75,6 +76,7 @@ async function main() {
       shots90_season: shots90,
       keyPasses90_season: kp90,
       minutes_recent: 450, // Assume nailed for test
+      season_minutes: extStats.minutes || 0, // Phase B requirement
       start_probability: 1.0
     };
 
@@ -89,7 +91,8 @@ async function main() {
       xG90_season: teamStats?.xG || 1.8,
       xGA90_season: teamStats?.xGA || 1.2,
       deep_season: teamStats?.deep || 8,
-      ppda_season: teamStats?.ppda || 10
+      ppda_season: teamStats?.ppda || 10,
+      savesFactor: 1.0 // Phase B4: Standard GK ability
     };
 
     const prediction = predictionService.calculateXPts(playerInput, teamInput, mockOpponent, leagueAvg);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient, Position } from "@prisma/client";
+import { PrismaClient, Position, Prisma } from "@prisma/client";
 import { PredictionService, PlayerInput, TeamInput, LeagueAverages } from "@/lib/services/predictionService";
 
 
@@ -73,6 +73,23 @@ function perMatch(value: number | null | undefined, gamesPlayed: number, fallbac
   return fallbackPerMatch;                              // already per-match fallback
 }
 
+/**
+ * Phase A1: Safe per-match conversion with auto-detection
+ * Prevents double division: if raw > 5 and games >= 5, it's likely a season total
+ * Otherwise, it's already per-match
+ */
+function toPerMatchSafe(
+  raw: number | null | undefined,
+  gamesPlayed: number,
+  fallbackPerMatch: number
+): number {
+  if (raw == null || !Number.isFinite(raw)) return fallbackPerMatch;
+  const v = Number(raw);
+  const n = Math.max(1, gamesPlayed || 0);
+  // Auto-detect: if value > 5 and we have enough games, it's likely a total
+  return v > 5 && n >= 5 ? v / n : v;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -117,8 +134,8 @@ export async function GET(request: Request) {
     };
 
     // 4) Fetch players + teams + opps for target GWs
-    const where: any = {};
-    if (position) where.position = position.toUpperCase();
+    const where: Prisma.PlayerWhereInput = {};
+    if (position) where.position = position.toUpperCase() as Position;
     if (teamId) where.teamId = parseInt(teamId, 10);
 
     const players = await prisma.player.findMany({
@@ -187,9 +204,9 @@ export async function GET(request: Request) {
 
         // We'll fill teamInput per fixture (only isHome differs), but per-match values same
         const teamPM = {
-          xG90_season: perMatch(teamSeason?.xG, teamGamesPlayed, 1.5),
-          xGA90_season: perMatch(teamSeason?.xGA, teamGamesPlayed, 1.5),
-          deep_season: perMatch(teamSeason?.deep, teamGamesPlayed, 8.0),
+          xG90_season: toPerMatchSafe(teamSeason?.xG, teamGamesPlayed, 1.5),
+          xGA90_season: toPerMatchSafe(teamSeason?.xGA, teamGamesPlayed, 1.5),
+          deep_season: toPerMatchSafe(teamSeason?.deep, teamGamesPlayed, 8.0),
           ppda_season: teamSeason?.ppda ?? 12.0, // PPDA обычно среднее, не сумма
         };
 
@@ -202,17 +219,16 @@ export async function GET(request: Request) {
           minutes_recent: Math.round(inf.minutes_recent_proxy),
           season_minutes: seasonMinutes,
           start_probability: inf.p_start,
-          cameo_probability: P_CAM_PRIOR, // согласовано с инференсом
         };
 
-        const gwData: Record<number, any> = {};
+        const gwData: Record<number, { xPts: number; fixture: string; opponent: string; isHome?: boolean; breakdown?: { appearance: number; attack: number; defense: number; bonus: number; other: number }; raw?: { xG: number; xA: number; csProb: number } }> = {};
         let totalXPts = 0;
 
         for (const gw of gameweeks) {
           const homeMatch = team.homeMatches.find((m) => m.gameweek === gw);
           const awayMatch = team.awayMatches.find((m) => m.gameweek === gw);
 
-          let opponentTeam: any = null;
+          let opponentTeam: { id: number; name: string; shortName: string; externalStats?: { gameweek: number; xG: number | null; xGA: number | null; deep: number | null; ppda: number | null }[] } | null = null;
           let isHome = false;
           let fixtureStr = "BLANK";
 
@@ -233,7 +249,7 @@ export async function GET(request: Request) {
 
           const oppGamesPlayed = gamesPlayedByTeam.get(opponentTeam.id) || 15;
           const oppSeason =
-            opponentTeam.externalStats?.find((s: any) => s.gameweek === 0) ||
+            opponentTeam.externalStats?.find((s) => s.gameweek === 0) ||
             opponentTeam.externalStats?.[opponentTeam.externalStats.length - 1] ||
             null;
 
@@ -241,9 +257,9 @@ export async function GET(request: Request) {
             id: opponentTeam.id,
             name: opponentTeam.name,
             isHome: !isHome,
-            xG90_season: perMatch(oppSeason?.xG, oppGamesPlayed, 1.2),
-            xGA90_season: perMatch(oppSeason?.xGA, oppGamesPlayed, 1.5),
-            deep_season: perMatch(oppSeason?.deep, oppGamesPlayed, 5.0),
+            xG90_season: toPerMatchSafe(oppSeason?.xG, oppGamesPlayed, 1.2),
+            xGA90_season: toPerMatchSafe(oppSeason?.xGA, oppGamesPlayed, 1.5),
+            deep_season: toPerMatchSafe(oppSeason?.deep, oppGamesPlayed, 5.0),
             ppda_season: oppSeason?.ppda ?? 12.0,
           };
 
@@ -302,9 +318,9 @@ export async function GET(request: Request) {
           history: gwData,
         };
       })
-      .filter(Boolean) as any[];
+      .filter(Boolean) as { playerId: number; playerName: string; position: Position; price: number; team: string; teamShort: string; totalXPts: number; history: Record<number, unknown> }[];
 
-    predictions.sort((a: any, b: any) => b.totalXPts - a.totalXPts);
+    predictions.sort((a, b) => b.totalXPts - a.totalXPts);
 
     return NextResponse.json({ gameweeks, predictions });
   } catch (error) {
