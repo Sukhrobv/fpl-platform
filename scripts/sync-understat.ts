@@ -59,7 +59,7 @@ async function syncUnderstat() {
 
         const match = findBestMatch(uPlayer.player_name, teamCandidates);
         
-        if (match && match.confidence > 0.85) {
+        if (match && match.confidence > 0.75) {
            fplPlayerId = parseInt(match.candidateId);
            
            // Create mapping
