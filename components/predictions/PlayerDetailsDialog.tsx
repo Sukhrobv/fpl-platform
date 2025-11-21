@@ -11,6 +11,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Target, Shield, Clock, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type RawExplain = {
@@ -153,33 +156,32 @@ export function PlayerDetailsDialog({ open, onOpenChange, player, gameweeks }: P
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 my-4">
-          <div className="bg-muted/40 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-primary">{player.totalXPts.toFixed(1)}</div>
-            <div className="text-xs text-muted-foreground">Total xPts (next {gameweeks.length})</div>
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg p-4 text-center border border-primary/20">
+            <div className="text-3xl font-bold text-primary">{player.totalXPts.toFixed(1)}</div>
+            <div className="text-xs text-muted-foreground mt-1">Всего xPts ({gameweeks.length} GW)</div>
           </div>
-          <div className="bg-muted/40 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-primary">{(player.totalXPts / gameweeks.length).toFixed(2)}</div>
-            <div className="text-xs text-muted-foreground">Avg xPts per GW</div>
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-lg p-4 text-center border border-blue-200 dark:border-blue-900">
+            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{(player.totalXPts / gameweeks.length).toFixed(2)}</div>
+            <div className="text-xs text-muted-foreground mt-1">Средний xPts за GW</div>
           </div>
-          <div className="bg-muted/40 rounded-lg p-3 text-center">
-            <div className="text-lg font-semibold">λ_att {fmt(avgLambdaAtt)} • λ_def {fmt(avgLambdaDef)}</div>
-            <div className="text-xs text-muted-foreground">Opp xGA/90 {fmt(avgOppXga)} • deep {fmt(avgOppDeep, 1)}</div>
+          <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 rounded-lg p-4 border border-orange-200 dark:border-orange-900">
+            <div className="text-xs text-muted-foreground mb-2">Средняя оборона соперника</div>
+            <Badge variant="secondary" className="text-sm">xGA {fmt(avgOppXga)}</Badge>
           </div>
-          <div className="bg-muted/40 rounded-lg p-3 text-center">
-            <div className="text-lg font-semibold">
-              P(start) {pct(avgPstart)} • P60 {pct(avgP60)} • E[min] {fmt(avgEmins, 0)}′
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-4 border border-green-200 dark:border-green-900">
+            <div className="text-xs text-muted-foreground mb-2">Среднее игровое время</div>
+            <div className="flex items-center justify-center gap-2">
+              <Badge variant="outline" className="text-sm">{fmt(avgEmins, 0)}′</Badge>
+              <span className="text-xs">({pct(avgPstart)} старт)</span>
             </div>
-            {avgDefconP > 0 && (
-              <div className="text-xs text-muted-foreground">DEFCON avg P(hit) {pct(avgDefconP)}</div>
-            )}
           </div>
         </div>
 
         {/* WHY THIS PROJECTION (selected GW) */}
         {dataSel && (
-          <div className="rounded-lg border p-4 mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-semibold">Why this projection — GW {gwSelected}</div>
+          <div className="rounded-lg border p-4 mb-4 bg-gradient-to-br from-muted/30 to-muted/10">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b">
+              <div className="font-semibold text-lg">Почему такая проекция — GW {gwSelected}</div>
               <Select value={String(gwSelected)} onValueChange={(v) => setGwSelected(Number(v))}>
                 <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -190,34 +192,120 @@ export function PlayerDetailsDialog({ open, onOpenChange, player, gameweeks }: P
 
             <div className="grid md:grid-cols-2 gap-4">
               {/* Attacking rationale */}
-              <div className="rounded-md border p-3 bg-card">
-                <div className="text-sm font-semibold mb-2">Attacking context</div>
-                <ul className="text-sm space-y-1.5">
-                  <li>
-                    Удары: <b>{fmt(shots90_r)}</b> /90 {t_sh.text ? `(${t_sh.text})` : ""}; соперник допускает{" "}
-                    <b>{fmt(shOpp_r, 1)}</b> /90 <span className="text-muted-foreground">(L5)</span>.
-                  </li>
-                  <li>
-                    Ваша <b>xG90 {fmt(xG90_r)}</b> и <b>xA90 {fmt(xA90_r)}</b> <span className="text-muted-foreground">(L5{ctx?.player?.xG90_recent ? "" : "/season"})</span>.
-                  </li>
-                  <li>
-                    Соперник: <b>{oppDefLabel}</b>, <b>{deepLabel}</b>.
-                    {xGA_op_r != null && <> xGA(L5): <b>{fmt(xGA_op_r)}</b></>}
-                    {deep_op_r != null && <>; DeepAllowed(L5): <b>{fmt(deep_op_r, 1)}</b></>}
-                  </li>
-                </ul>
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 rounded-lg p-4 border border-orange-200 dark:border-orange-900">
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  <span className="font-semibold">Атакующий потенциал</span>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Ожидаемые голы (xG90)</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="font-mono">{fmt(xG90_r)}</Badge>
+                      {t_xG.dir !== 0 && (
+                        t_xG.dir > 0 ? <TrendingUp className="h-3 w-3 text-green-600" /> : <TrendingDown className="h-3 w-3 text-red-600" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Ожидаемые ассисты (xA90)</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="font-mono">{fmt(xA90_r)}</Badge>
+                      {t_xA.dir !== 0 && (
+                        t_xA.dir > 0 ? <TrendingUp className="h-3 w-3 text-green-600" /> : <TrendingDown className="h-3 w-3 text-red-600" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Удары за 90 мин</span>
+                    <span className="text-sm font-medium">{fmt(shots90_r)} vs {fmt(shOpp_r, 1)}</span>
+                  </div>
+                  {xGA_op_r != null && (
+                    <div className="pt-2 border-t border-orange-200 dark:border-orange-800">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">{oppDefLabel}</span>
+                        <Badge variant={xGA_op_r >= 1.5 ? "default" : "outline"}>
+                          xGA {fmt(xGA_op_r)} <span className="text-xs ml-1">L5</span>
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Defensive & reliability */}
-              <div className="rounded-md border p-3 bg-card">
-                <div className="text-sm font-semibold mb-2">Reliability & defensive</div>
-                <ul className="text-sm space-y-1.5">
-                  <li>Вероятность CS: <b>{pct(dataSel.raw.csProb)}</b>{dataSel.raw.lambdaDef != null && <> • λ_def <b>{fmt(dataSel.raw.lambdaDef)}</b></>}</li>
-                  {dataSel.defcon && (
-                    <li>DEFCON порог {dataSel.defcon.threshold}: шанс <b>{pct(dataSel.defcon.prob)}</b>, ожидаемо <b>+{(2*(dataSel.defcon.prob||0)).toFixed(2)}</b> очка.</li>
-                  )}
-                  <li>Итог: <b>{dataSel.xPts.toFixed(2)}</b> = атака <b>{dataSel.breakdown.attack.toFixed(2)}</b> + оборона <b>{dataSel.breakdown.defense.toFixed(2)}</b> + бонус <b>{dataSel.breakdown.bonus.toFixed(2)}</b> + выход <b>{dataSel.breakdown.appearance.toFixed(2)}</b>.</li>
-                </ul>
+              <div className="space-y-3">
+                {/* Playing Time */}
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-900">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <span className="font-semibold">Игровое время</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-muted-foreground">Вероятность старта</span>
+                        <span className="text-xs font-semibold">{pct(dataSel.raw.pStart)}</span>
+                      </div>
+                      <Progress value={(dataSel.raw.pStart ?? 0) * 100} className="h-1.5" />
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Ожидаемые минуты</span>
+                      <Badge variant="outline" className="font-mono">{fmt(dataSel.raw.eMin, 0)}′</Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Defense */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-4 border border-green-200 dark:border-green-900">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <span className="font-semibold">Оборона</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-muted-foreground">Чистый лист</span>
+                        <span className="text-xs font-semibold">{pct(dataSel.raw.csProb)}</span>
+                      </div>
+                      <Progress value={(dataSel.raw.csProb ?? 0) * 100} className="h-1.5" />
+                    </div>
+                    {dataSel.defcon && (
+                      <div className="pt-2 border-t border-green-200 dark:border-green-800">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-muted-foreground">DEFCON бонус</span>
+                          <Badge variant="outline">+{(2*(dataSel.defcon.prob||0)).toFixed(2)} pts</Badge>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Points Breakdown */}
+            <div className="mt-4 pt-4 border-t">
+              <div className="grid grid-cols-5 gap-3">
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Итого</div>
+                  <Badge className="text-base font-bold px-3 py-1">{dataSel.xPts.toFixed(1)}</Badge>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Атака</div>
+                  <div className="font-semibold">{dataSel.breakdown.attack.toFixed(1)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Оборона</div>
+                  <div className="font-semibold">{dataSel.breakdown.defense.toFixed(1)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Бонус</div>
+                  <div className="font-semibold">{dataSel.breakdown.bonus.toFixed(1)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Выход</div>
+                  <div className="font-semibold">{dataSel.breakdown.appearance.toFixed(1)}</div>
+                </div>
               </div>
             </div>
           </div>
