@@ -10,7 +10,7 @@ async function syncUnderstat() {
   
   try {
     // 1. Fetch Data
-    const players = await collector.getLeaguePlayers('EPL', 2025);
+    const players = await collector.getLeaguePlayers('EPL', 2024);
     console.log(`📥 Fetched ${players.length} players from Understat`);
 
     // 2. Get FPL Players for mapping
@@ -62,19 +62,39 @@ async function syncUnderstat() {
         if (match && match.confidence > 0.75) {
            fplPlayerId = parseInt(match.candidateId);
            
-           // Create mapping
-           await prisma.playerMapping.create({
-             data: {
-               playerId: fplPlayerId,
-               source: 'understat',
-               externalId: uPlayer.id,
-               method: match.method === 'EXACT' ? 'EXACT_MATCH' : 'FUZZY_MATCH',
-               confidence: match.confidence,
-               status: 'PENDING' // Mark as pending until verified? Or CONFIRMED if high confidence?
-               // Let's use PENDING for now.
+           // Check if this FPL player is already mapped to Understat
+           const existingMapping = await prisma.playerMapping.findUnique({
+             where: {
+               playerId_source: {
+                 playerId: fplPlayerId,
+                 source: 'understat'
+               }
              }
            });
-           mappedCount++;
+
+           if (existingMapping) {
+             // Update existing mapping if externalId is different
+             if (existingMapping.externalId !== uPlayer.id) {
+                console.log(`🔄 Updating mapping for ${uPlayer.player_name} (ID: ${existingMapping.externalId} -> ${uPlayer.id})`);
+                await prisma.playerMapping.update({
+                    where: { id: existingMapping.id },
+                    data: { externalId: uPlayer.id }
+                });
+             }
+           } else {
+               // Create new mapping
+               await prisma.playerMapping.create({
+                 data: {
+                   playerId: fplPlayerId,
+                   source: 'understat',
+                   externalId: uPlayer.id,
+                   method: match.method === 'EXACT' ? 'EXACT_MATCH' : 'FUZZY_MATCH',
+                   confidence: match.confidence,
+                   status: 'PENDING'
+                 }
+               });
+               mappedCount++;
+           }
         } else {
             // console.log(`⚠️ Could not map: ${uPlayer.player_name} (${uPlayer.team_title})`);
         }
@@ -170,7 +190,7 @@ async function syncUnderstat() {
 
     // 5. Process Team Stats
     console.log('📊 Syncing Team Stats...');
-    const teamsData = await collector.getLeagueTeams('EPL', 2025);
+    const teamsData = await collector.getLeagueTeams('EPL', 2024);
     let teamStatsUpdated = 0;
 
     // Map Understat team names to FPL team names (or use DB mapping if we had it)

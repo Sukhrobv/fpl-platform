@@ -82,10 +82,10 @@ const LEAGUE_AVERAGES_DEFAULT: LeagueAverages = {
 
 // v2 Quick Fixes D1: Position scaling to fix GK/DEF overvaluation and FWD undervaluation
 const POSITION_SCALE_FACTORS: Record<Position, number> = {
-  FORWARD: 1.15,     // Boost forwards by 15%
-  MIDFIELDER: 1.10,  // Boost midfielders by 10%
-  DEFENDER: 0.92,    // Reduce defenders by 8%
-  GOALKEEPER: 0.85   // Reduce goalkeepers by 15%
+  FORWARD: 1.0,      // Reset to 1.0 (Phase B improvements handle this)
+  MIDFIELDER: 1.0,   // Reset to 1.0
+  DEFENDER: 0.92,    // Keep reduction for defenders
+  GOALKEEPER: 0.85   // Keep reduction for goalkeepers
 };
 
 // v2 Quick Fixes D1: Hard clips per position to prevent outliers
@@ -114,13 +114,13 @@ interface RolePriors {
 
 // Phase B2: Role-based gShare/aShare priors
 const ROLE_PRIORS: Record<PlayerRole, RolePriors> = {
-  Poacher: { gShare: 0.45, aShare: 0.15 },           // High goal threat, low creativity
-  CompleteForward: { gShare: 0.35, aShare: 0.25 },   // Balanced goal + assist threat
-  Playmaker: { gShare: 0.15, aShare: 0.35 },         // High creativity, moderate goals
-  BoxToBox: { gShare: 0.25, aShare: 0.25 },          // Balanced attacking midfielder
-  Winger: { gShare: 0.20, aShare: 0.30 },            // Wide player, assists > goals
+  Poacher: { gShare: 0.40, aShare: 0.10 },           // High goal threat, low creativity
+  CompleteForward: { gShare: 0.30, aShare: 0.20 },   // Balanced goal + assist threat
+  Playmaker: { gShare: 0.10, aShare: 0.25 },         // High creativity, moderate goals (Reduced)
+  BoxToBox: { gShare: 0.15, aShare: 0.15 },          // Balanced attacking midfielder (Reduced)
+  Winger: { gShare: 0.15, aShare: 0.20 },            // Wide player, assists > goals (Reduced)
   AttackingDefender: { gShare: 0.08, aShare: 0.05 }, // Set-piece threat
-  StandardDefender: { gShare: 0.03, aShare: 0.02 },  // Minimal attacking threat
+  StandardDefender: { gShare: 0.02, aShare: 0.02 },  // Minimal attacking threat
   Goalkeeper: { gShare: 0.00, aShare: 0.00 }         // No attacking contribution
 };
 

@@ -49,14 +49,17 @@ export interface UnderstatTeam {
 
 export class UnderstatCollector {
   private baseUrl = 'https://understat.com';
-
   /**
    * Fetches player data for a specific league and season.
    * @param league League name (e.g., 'EPL')
    * @param year Season start year (e.g., 2024 for 24/25)
    */
   async getLeaguePlayers(league: string = 'EPL', year: number = 2024): Promise<UnderstatPlayer[]> {
-    const url = `${this.baseUrl}/league/${league}/${year}`;
+    // For current season (2024/25), Understat uses the base URL without year
+    const url = year === 2024 
+      ? `${this.baseUrl}/league/${league}`
+      : `${this.baseUrl}/league/${league}/${year}`;
+      
     console.log(`[UnderstatCollector] Fetching ${url}...`);
 
     try {
@@ -73,7 +76,9 @@ export class UnderstatCollector {
    * Fetches team data for a specific league and season.
    */
   async getLeagueTeams(league: string = 'EPL', year: number = 2024): Promise<Record<string, UnderstatTeam>> {
-    const url = `${this.baseUrl}/league/${league}/${year}`;
+    const url = year === 2024
+      ? `${this.baseUrl}/league/${league}`
+      : `${this.baseUrl}/league/${league}/${year}`;
     try {
       const response = await axios.get(url);
       const html = response.data;

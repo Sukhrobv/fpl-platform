@@ -13,9 +13,9 @@ project_info:
 
 current_position:
   chapter: 3
-  stage: "3.4"
+  stage: "3.5"
   substage: "Completed"
-  description: "Predictive Algorithm (xPts) implemented and linked to fixtures"
+  description: "Validation of xPts model completed. Data sync issues resolved."
 
 progress:
   completed_chapters:
@@ -90,17 +90,21 @@ progress:
               name: "Predictive Algorithm (xPts)"
               completed: true
               date: "2025-11-20"
+          - stage_3_5:
+              name: "Validation & Debugging"
+              completed: true
+              date: "2025-11-21"
 
   current_work:
-    task: "Validation & Calibration (Phase C)"
+    task: "Calibration & Explainability (Phase C)"
     started: "2025-11-21"
     blockers: []
-    notes: "Phase B (Event Model) complete. xPts algorithm now includes role-based personality and opponent context."
+    notes: "Validation complete. Understat data corrected (2024/25 season). Predictions are realistic."
 
   next_steps:
-    immediate: "Validate predictions against actual GW data"
+    immediate: "Implement position-specific meta-models"
     upcoming:
-      - "Phase C: Position-specific meta-models"
+      - "Phase C2: Explainability module"
       - "Phase D2: Penalty & Set-Pieces (when data available)"
 
 technical_stack:
