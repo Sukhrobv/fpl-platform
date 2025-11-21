@@ -101,9 +101,9 @@ export function PredictionsTable() {
     }));
   };
 
-  const uniqueTeams = Array.from(new Set(predictions.map(p => p.teamShort))).sort();
+  const uniqueTeams = Array.from(new Set((predictions || []).map(p => p.teamShort))).sort();
 
-  const filteredData = predictions
+  const filteredData = (predictions || [])
     .filter((p) => {
       const matchesSearch = p.playerName.toLowerCase().includes(search.toLowerCase());
       const matchesPosition = positionFilter === "ALL" || p.position === positionFilter;

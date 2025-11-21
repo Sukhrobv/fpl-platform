@@ -278,7 +278,7 @@ export async function GET(request: Request) {
             ...basePlayerInput,
           };
 
-          const pred = predictionService.calculateXPts(
+          const { xPts, breakdown, raw } = predictionService.calculateXPts(
             playerInput,
             teamInput,
             opponentInput,
@@ -286,25 +286,25 @@ export async function GET(request: Request) {
           );
 
           gwData[gw] = {
-            xPts: pred.xPts,
+            xPts,
             fixture: fixtureStr,
             opponent: opponentTeam.shortName,
             isHome,
             breakdown: {
-              appearance: pred.breakdown.appearance,
-              attack: pred.breakdown.attack,
-              defense: pred.breakdown.defense,
-              bonus: pred.breakdown.bonus,
-              other: pred.breakdown.other,
+              appearance: breakdown.appearance,
+              attack: breakdown.attack,
+              defense: breakdown.defense,
+              bonus: breakdown.bonus,
+              other: breakdown.other,
             },
             raw: {
-              xG: pred.raw.xG,
-              xA: pred.raw.xA,
-              csProb: pred.raw.csProb,
+              xG: raw.xG,
+              xA: raw.xA,
+              csProb: raw.csProb,
             },
           };
 
-          totalXPts += pred.xPts;
+          totalXPts += xPts;
         }
 
         return {
