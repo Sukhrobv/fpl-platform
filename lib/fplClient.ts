@@ -66,9 +66,36 @@ export async function getEventLive(eventId: number) {
   return fplGet<any>(`/event/${eventId}/live/`);
 }
 
+/**
+ * Fetches basic information about a specific FPL entry (team).
+ * Endpoint: /entry/{entry_id}/
+ */
+export async function getEntry(entryId: number) {
+  return fplGet<any>(`/entry/${entryId}/`);
+}
+
+/**
+ * Fetches a team's picks for a specific gameweek.
+ * Endpoint: /entry/{entry_id}/event/{event_id}/picks/
+ */
+export async function getEntryPicks(entryId: number, eventId: number) {
+  return fplGet<any>(`/entry/${entryId}/event/${eventId}/picks/`);
+}
+
+/**
+ * Fetches a team's transfer history.
+ * Endpoint: /entry/{entry_id}/transfers/
+ */
+export async function getEntryTransfers(entryId: number) {
+  return fplGet<any>(`/entry/${entryId}/transfers/`);
+}
+
 export default {
   getBootstrapData,
   getFixtures,
   getPlayerSummary,
   getEventLive,
+  getEntry,
+  getEntryPicks,
+  getEntryTransfers,
 };

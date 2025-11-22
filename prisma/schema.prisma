@@ -118,6 +118,7 @@ model Player {
   
   // Fantasy team relations
   fantasyPicks   FantasyTeamPick[]
+  watchlist      Watchlist[]
   
   // Timestamps
   createdAt      DateTime  @default(now())
@@ -348,9 +349,11 @@ model User {
   email          String    @unique
   name           String?
   fplTeamId      Int?      @unique
+  password       String?   // For local auth if needed
   
   // Relations
   fantasyTeams   FantasyTeam[]
+  watchlist      Watchlist[]
   
   // Timestamps
   createdAt      DateTime  @default(now())
@@ -372,9 +375,16 @@ model FantasyTeam {
   teamValue      Int       // Total value x10
   bank           Int       // Money in bank x10
   freeTransfers  Int
+  transfersMade  Int       @default(0)
   pointsHit      Int       @default(0) // Points deduction
   
-  // Chips
+  // Chip Status (Available at start of GW)
+  wildcardAvailable      Boolean @default(true)
+  freeHitAvailable       Boolean @default(true)
+  benchBoostAvailable    Boolean @default(true)
+  tripleCaptainAvailable Boolean @default(true)
+  
+  // Chip Used this GW
   chipUsed       ChipType?
   
   // Squad
@@ -400,7 +410,7 @@ model FantasyTeamPick {
   
   // Relations
   fantasyTeamId  Int
-  fantasyTeam    FantasyTeam @relation(fields: [fantasyTeamId], references: [id])
+  fantasyTeam    FantasyTeam @relation(fields: [fantasyTeamId], references: [id], onDelete: Cascade)
   playerId       Int
   player         Player    @relation(fields: [playerId], references: [id])
   
@@ -410,8 +420,30 @@ model FantasyTeamPick {
   isViceCaptain  Boolean   @default(false)
   multiplier     Int       @default(1) // 2 for captain, 3 for TC
   
+  // Price details (Important for transfer analysis)
+  purchasePrice  Int?      // x10
+  sellingPrice   Int?      // x10
+  
   @@unique([fantasyTeamId, position])
   @@map("fantasy_team_picks")
+}
+
+model Watchlist {
+  id              Int       @id @default(autoincrement())
+  
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id])
+  playerId        Int
+  player          Player    @relation(fields: [playerId], references: [id])
+  
+  addedAt         DateTime  @default(now())
+  reason          String?   // "manual", "suggested"
+  
+  // Tracking snapshot
+  priceAtAdd      Int?
+  
+  @@unique([userId, playerId])
+  @@map("watchlist")
 }
 
 // ============================================
