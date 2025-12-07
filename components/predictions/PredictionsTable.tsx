@@ -10,10 +10,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Info } from "lucide-react";
+import { ArrowUpDown, Info, Filter, Search } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { GWCellPopover } from "./GWCellPopover";
 import { PlayerDetailsDialog } from "./PlayerDetailsDialog";
+import { PredictionSummaryCards } from "./PredictionSummaryCards";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type RawExplain = {
   xG: number; xA: number; csProb: number;
@@ -52,7 +55,6 @@ interface GWData {
     bonus: number;
   };
   raw: RawExplain;
-  // NEW:
   context?: GWContext;
   defcon?: { prob: number; mean?: number; threshold?: number } | null;
 }
@@ -134,6 +136,9 @@ export function PredictionsTable() {
       if (sortConfig.key === 'totalXPts') {
         aValue = a.totalXPts;
         bValue = b.totalXPts;
+      } else if (sortConfig.key === 'price') {
+        aValue = a.price;
+        bValue = b.price;
       }
 
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -141,166 +146,213 @@ export function PredictionsTable() {
       return 0;
     });
 
-  const getXPtsColor = (xPts: number) => {
-    if (xPts >= 6) return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800';
-    if (xPts >= 4) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800';
-    if (xPts >= 2) return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800';
-    return 'bg-gray-50 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400 border-gray-100 dark:border-gray-800';
+  // Heatmap color function
+  const getHeatmapStyle = (xPts: number) => {
+    // Scale: 0 to 8+
+    // 0-2: Gray/Red
+    // 2-4: Yellow/Orange
+    // 4-6: Green
+    // 6+: Bright Green/Blue
+    
+    if (xPts >= 7) return { bg: 'bg-[#00ff87]/20', text: 'text-[#00ff87]', border: 'border-[#00ff87]/30' };
+    if (xPts >= 5) return { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' };
+    if (xPts >= 3.5) return { bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30' };
+    if (xPts >= 2) return { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/20' };
+    return { bg: 'bg-slate-500/5', text: 'text-slate-400', border: 'border-slate-500/10' };
   };
 
-  if (loading) return <div className="text-center p-10">Loading projections...</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+      <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      <p className="text-muted-foreground animate-pulse">Analyzing fixtures & stats...</p>
+    </div>
+  );
 
   return (
-    <div className="space-y-4">
-      {/* Filters Header */}
-      <div className="flex flex-col gap-4 bg-card p-4 rounded-lg border shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight">FPL Projections</h2>
-            <p className="text-sm text-muted-foreground">
-              Next {gameweeks.length} Gameweeks • {filteredData.length} players found
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <PredictionSummaryCards predictions={predictions} />
+
+      {/* Main Content Area with Glassmorphism */}
+      <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl overflow-hidden">
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Input
-            placeholder="Search player..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full"
-          />
-          
-          <Select value={positionFilter} onValueChange={setPositionFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Position" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Positions</SelectItem>
-              <SelectItem value="GOALKEEPER">Goalkeepers</SelectItem>
-              <SelectItem value="DEFENDER">Defenders</SelectItem>
-              <SelectItem value="MIDFIELDER">Midfielders</SelectItem>
-              <SelectItem value="FORWARD">Forwards</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Toolbar */}
+        <div className="p-4 border-b border-white/5 flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-white/5">
+          <div className="flex items-center gap-2 w-full lg:w-auto">
+            <div className="relative w-full lg:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search player..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 bg-black/20 border-white/10 focus:border-emerald-500/50 transition-colors"
+              />
+            </div>
+            
+            {/* Mobile Filters Trigger could go here */}
+          </div>
 
-          <Select value={teamFilter} onValueChange={setTeamFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Team" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Teams</SelectItem>
-              {uniqueTeams.map(team => (
-                <SelectItem key={team} value={team}>{team}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <Select value={positionFilter} onValueChange={setPositionFilter}>
+              <SelectTrigger className="w-[140px] bg-black/20 border-white/10">
+                <SelectValue placeholder="Position" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Positions</SelectItem>
+                <SelectItem value="GOALKEEPER">GK</SelectItem>
+                <SelectItem value="DEFENDER">DEF</SelectItem>
+                <SelectItem value="MIDFIELDER">MID</SelectItem>
+                <SelectItem value="FORWARD">FWD</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <div className="flex items-center gap-4 px-2 border rounded-md">
-            <span className="text-sm font-medium whitespace-nowrap">Max £{(maxPrice / 10).toFixed(1)}</span>
-            <Slider
-              value={[maxPrice]}
-              min={35}
-              max={150}
-              step={1}
-              onValueChange={(val) => setMaxPrice(val[0])}
-              className="w-full"
-            />
+            <Select value={teamFilter} onValueChange={setTeamFilter}>
+              <SelectTrigger className="w-[140px] bg-black/20 border-white/10">
+                <SelectValue placeholder="Team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Teams</SelectItem>
+                {uniqueTeams.map(team => (
+                  <SelectItem key={team} value={team}>{team}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="bg-black/20 border-white/10 gap-2">
+                  <Filter className="h-4 w-4" />
+                  Price: £{(maxPrice / 10).toFixed(1)}m
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 backdrop-blur-xl bg-black/90 border-white/10">
+                <div className="space-y-4">
+                  <h4 className="font-medium leading-none">Max Price</h4>
+                  <div className="flex items-center gap-4">
+                    <Slider
+                      value={[maxPrice]}
+                      min={35}
+                      max={150}
+                      step={1}
+                      onValueChange={(val) => setMaxPrice(val[0])}
+                      className="flex-1"
+                    />
+                    <span className="w-12 text-sm font-mono text-right">
+                      £{(maxPrice / 10).toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
-      </div>
 
-      {/* Data Table */}
-      <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="w-[200px] sticky left-0 bg-muted/50 z-10">Player</TableHead>
-              <TableHead className="w-[100px]">Team</TableHead>
-              <TableHead className="w-[80px]">
-                <Button variant="ghost" size="sm" onClick={() => handleSort('price')} className="-ml-3 h-8">
-                  Price <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[80px] text-center font-bold border-l border-r bg-muted/30">
-                <Button variant="ghost" size="sm" onClick={() => handleSort('totalXPts')} className="h-8">
-                  Total <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              {gameweeks.map(gw => (
-                <TableHead key={gw} className="text-center min-w-[100px]">
-                  GW {gw}
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-black/40">
+              <TableRow className="hover:bg-transparent border-white/5">
+                <TableHead className="w-[250px] sticky left-0 bg-black/80 backdrop-blur-md z-20 pl-6">Player</TableHead>
+                <TableHead className="w-[100px] text-center">Team</TableHead>
+                <TableHead className="w-[100px] text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('price')}>
+                  <div className="flex items-center justify-center gap-1">
+                    Price <ArrowUpDown className="h-3 w-3" />
+                  </div>
                 </TableHead>
-              ))}
-              <TableHead className="w-[60px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredData.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5 + gameweeks.length} className="h-24 text-center">
-                  No results found.
-                </TableCell>
+                <TableHead className="w-[100px] text-center font-bold bg-white/5 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => handleSort('totalXPts')}>
+                  <div className="flex items-center justify-center gap-1 text-emerald-400">
+                    Total <ArrowUpDown className="h-3 w-3" />
+                  </div>
+                </TableHead>
+                {gameweeks.map(gw => (
+                  <TableHead key={gw} className="text-center min-w-[110px] text-xs uppercase tracking-wider text-muted-foreground">
+                    GW {gw}
+                  </TableHead>
+                ))}
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
-            ) : (
-              filteredData.map((player) => (
-                <TableRow key={player.playerId} className="hover:bg-muted/50">
-                  <TableCell className="font-medium sticky left-0 bg-card z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                    <div className="flex items-center gap-3">
-                      {TEAM_CODES[player.teamShort] && (
-                        <img 
-                          src={`https://resources.premierleague.com/premierleague/badges/50/t${TEAM_CODES[player.teamShort]}.png`} 
-                          alt={player.teamShort}
-                          className="w-8 h-8 object-contain"
-                          loading="lazy"
-                        />
-                      )}
-                      <div className="flex flex-col">
-                        <span className="text-base truncate max-w-[120px]" title={player.playerName}>{player.playerName}</span>
-                        <span className="text-xs text-muted-foreground capitalize">{player.position.toLowerCase()}</span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{player.teamShort}</TableCell>
-                  <TableCell>£{(player.price / 10).toFixed(1)}</TableCell>
-                  <TableCell className="text-center font-bold text-lg border-l border-r bg-muted/10">
-                    {player.totalXPts.toFixed(1)}
-                  </TableCell>
-                  {gameweeks.map(gw => {
-                    const d = player.history[gw];
-                    if (!d) {
-                      return <TableCell key={gw} className="text-center text-muted-foreground">-</TableCell>;
-                    }
-                    return (
-                      <TableCell key={gw} className="p-2">
-                        <GWCellPopover data={d} gw={gw} position={player.position}>
-                          <div className={`flex flex-col items-center justify-center p-1.5 rounded-md border cursor-pointer hover:shadow-md transition-shadow ${getXPtsColor(d.xPts)}`}>
-                            <span className="text-xs font-semibold mb-0.5">{d.opponent}</span>
-                            <span className="text-sm font-bold">{d.xPts.toFixed(1)}</span>
-                          </div>
-                        </GWCellPopover>
-                      </TableCell>
-                    );
-                  })}
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedPlayer(player);
-                        setDialogOpen(true);
-                      }}
-                      className="h-8 w-8 p-0"
-                      title="View detailed breakdown"
-                    >
-                      <Info className="h-4 w-4" />
-                    </Button>
+            </TableHeader>
+            <TableBody>
+              {filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5 + gameweeks.length} className="h-32 text-center text-muted-foreground">
+                    No players found matching your filters.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                filteredData.map((player) => (
+                  <TableRow key={player.playerId} className="hover:bg-white/5 border-white/5 transition-colors group">
+                    <TableCell className="font-medium sticky left-0 bg-[#0a0a0a] group-hover:bg-[#111] transition-colors z-20 pl-6 border-r border-white/5">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          {TEAM_CODES[player.teamShort] && (
+                            <img 
+                              src={`https://resources.premierleague.com/premierleague/badges/50/t${TEAM_CODES[player.teamShort]}.png`} 
+                              alt={player.teamShort}
+                              className="w-9 h-9 object-contain drop-shadow-md"
+                              loading="lazy"
+                            />
+                          )}
+                          <div className="absolute -bottom-1 -right-1 bg-black/80 text-[10px] px-1 rounded border border-white/10 text-muted-foreground">
+                            {player.position.substring(0, 3)}
+                          </div>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors truncate max-w-[140px]" title={player.playerName}>
+                            {player.playerName}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center text-muted-foreground text-xs">{player.teamShort}</TableCell>
+                    <TableCell className="text-center font-mono text-sm">£{(player.price / 10).toFixed(1)}</TableCell>
+                    <TableCell className="text-center font-bold text-lg bg-white/5 border-x border-white/5 text-emerald-400 font-mono">
+                      {player.totalXPts.toFixed(1)}
+                    </TableCell>
+                    {gameweeks.map(gw => {
+                      const d = player.history[gw];
+                      if (!d) {
+                        return <TableCell key={gw} className="text-center text-muted-foreground/30">-</TableCell>;
+                      }
+                      const style = getHeatmapStyle(d.xPts);
+                      return (
+                        <TableCell key={gw} className="p-1">
+                          <GWCellPopover data={d} gw={gw} position={player.position}>
+                            <div className={`
+                              flex flex-col items-center justify-center py-2 px-1 rounded-md border cursor-pointer 
+                              transition-all duration-200 hover:scale-105 hover:shadow-lg hover:brightness-110
+                              ${style.bg} ${style.border}
+                            `}>
+                              <span className="text-[10px] font-medium opacity-70 mb-0.5">{d.opponent}</span>
+                              <span className={`text-sm font-bold font-mono ${style.text}`}>{d.xPts.toFixed(1)}</span>
+                            </div>
+                          </GWCellPopover>
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedPlayer(player);
+                          setDialogOpen(true);
+                        }}
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 hover:text-emerald-400"
+                      >
+                        <Info className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        
+        <div className="p-4 border-t border-white/5 bg-white/5 text-xs text-center text-muted-foreground">
+          Showing {filteredData.length} players • Projections based on xG, xA, and recent form.
+        </div>
       </div>
 
       {/* Player Details Dialog */}

@@ -5,10 +5,11 @@ const service = new FPLPersonalService();
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { fplId: string } }
+  { params }: { params: Promise<{ fplId: string }> }
 ) {
   try {
-    const fplId = parseInt(params.fplId);
+    const { fplId: fplIdParam } = await params;
+    const fplId = parseInt(fplIdParam);
     if (isNaN(fplId)) {
       return NextResponse.json({ error: "Invalid FPL ID" }, { status: 400 });
     }

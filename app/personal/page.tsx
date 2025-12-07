@@ -1,22 +1,36 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SquadView } from '@/components/personal/SquadView';
 import { TransferRecommendationCard } from '@/components/personal/TransferRecommendationCard';
 import { TemplateComparison } from '@/components/personal/TemplateComparison';
 import { SquadHealthCard } from '@/components/personal/SquadHealthCard';
 import { ProblemList } from '@/components/personal/ProblemList';
 import { ChipRecommendationCard } from '@/components/personal/ChipRecommendationCard';
+import { useFplSettings } from '@/contexts/FplSettingsContext';
+import { Settings } from 'lucide-react';
+import Link from 'next/link';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyData = any;
 
 export default function PersonalAdvisorPage() {
+  const { fplId: savedFplId, setFplId: saveFplId } = useFplSettings();
   const [fplId, setFplId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [squad, setSquad] = useState<any>(null);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [contextData, setContextData] = useState<any>(null);
-  const [analysis, setAnalysis] = useState<any>(null);
-  const [chipRecs, setChipRecs] = useState<any[]>([]);
+  const [squad, setSquad] = useState<AnyData>(null);
+  const [recommendations, setRecommendations] = useState<AnyData[]>([]);
+  const [contextData, setContextData] = useState<AnyData>(null);
+  const [analysis, setAnalysis] = useState<AnyData>(null);
+  const [chipRecs, setChipRecs] = useState<AnyData[]>([]);
   const [viewedGw, setViewedGw] = useState<number | null>(null);
+
+  // Load saved FPL ID
+  useEffect(() => {
+    if (savedFplId) {
+      setFplId(savedFplId);
+    }
+  }, [savedFplId]);
 
   const fetchSquadForGw = async (gw: number) => {
     try {
@@ -27,13 +41,17 @@ export default function PersonalAdvisorPage() {
         setViewedGw(gw);
       }
     } catch (e) {
-      console.error("Failed to fetch squad for GW", gw);
+      console.error("Failed to fetch squad for GW", gw, e);
     }
   };
 
   const handleSync = async () => {
     if (!fplId) return;
     setLoading(true);
+    
+    // Save FPL ID for future use
+    saveFplId(fplId);
+    
     try {
       // 1. Sync Team
       const syncRes = await fetch(`/api/personal/${fplId}/sync`, { method: 'POST' });
@@ -74,103 +92,127 @@ export default function PersonalAdvisorPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-8">Personal Transfer Advisor</h1>
-
-      {/* Input Section */}
-      <div className="flex gap-4 mb-8 max-w-md">
-        <input
-          type="number"
-          placeholder="Enter FPL Team ID"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          value={fplId}
-          onChange={(e) => setFplId(e.target.value)}
-        />
-        <button
-          onClick={handleSync}
-          disabled={loading}
-          className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-        >
-          {loading ? 'Loading...' : 'Analyze My Team'}
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Squad */}
-        <div className="lg:col-span-2 space-y-8">
+    <div className="min-h-screen bg-slate-950 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Your Squad</h2>
-                {viewedGw && (
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => fetchSquadForGw(viewedGw - 1)}
-                            className="px-3 py-1 text-xs border rounded hover:bg-muted"
-                            disabled={viewedGw <= 1}
-                        >
-                            ← GW{viewedGw - 1}
-                        </button>
-                        <span className="text-sm font-medium">GW {viewedGw}</span>
-                        <button 
-                            onClick={() => fetchSquadForGw(viewedGw + 1)}
-                            className="px-3 py-1 text-xs border rounded hover:bg-muted"
-                            disabled={viewedGw >= 38}
-                        >
-                            GW{viewedGw + 1} →
-                        </button>
-                    </div>
-                )}
-            </div>
-            {squad ? (
-              <SquadView picks={squad.picks} gameweek={squad.gameweek} />
-            ) : (
-              <div className="text-muted-foreground p-8 border rounded-lg text-center">
-                Enter your FPL ID to see your squad analysis.
-              </div>
-            )}
+            <h1 className="text-2xl font-bold text-white">My Team</h1>
+            <p className="text-slate-400">Personal Transfer Advisor</p>
           </div>
-          
-          {squad && contextData && (
-            <div>
-               <h2 className="text-xl font-semibold mb-4">Elite Context</h2>
-               <TemplateComparison eliteEoMap={contextData.eliteEoMap} userPicks={squad.picks} />
-            </div>
+          {savedFplId && (
+            <Link 
+              href="/settings"
+              className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              ID: {savedFplId}
+            </Link>
           )}
         </div>
 
-        {/* Right Column: Analysis & Recommendations */}
-        <div className="space-y-8">
-          {analysis && (
-            <>
-              <SquadHealthCard health={analysis.health} />
-              <ProblemList problems={analysis.problems} />
-            </>
+        {/* Input Section */}
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 mb-8">
+          <div className="flex gap-4 max-w-lg">
+            <input
+              type="number"
+              placeholder="Enter FPL Team ID"
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+              value={fplId}
+              onChange={(e) => setFplId(e.target.value)}
+            />
+            <button
+              onClick={handleSync}
+              disabled={loading || !fplId}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Loading...' : 'Analyze My Team'}
+            </button>
+          </div>
+          {!savedFplId && (
+            <p className="text-sm text-slate-500 mt-3">
+              💡 Your FPL ID will be saved automatically for next time
+            </p>
           )}
+        </div>
 
-          {chipRecs.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column: Squad */}
+          <div className="lg:col-span-2 space-y-8">
             <div>
-              <h2 className="text-xl font-semibold mb-4">💎 Chip Strategy</h2>
-              <div className="space-y-3">
-                {chipRecs.map((chip: any, i: number) => (
-                  <ChipRecommendationCard key={i} {...chip} />
-                ))}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-white">Your Squad</h2>
+                {viewedGw && (
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => fetchSquadForGw(viewedGw - 1)}
+                      className="px-3 py-1 text-xs border border-slate-700 rounded hover:bg-slate-800 text-slate-300"
+                      disabled={viewedGw <= 1}
+                    >
+                      ← GW{viewedGw - 1}
+                    </button>
+                    <span className="text-sm font-medium text-white">GW {viewedGw}</span>
+                    <button 
+                      onClick={() => fetchSquadForGw(viewedGw + 1)}
+                      className="px-3 py-1 text-xs border border-slate-700 rounded hover:bg-slate-800 text-slate-300"
+                      disabled={viewedGw >= 38}
+                    >
+                      GW{viewedGw + 1} →
+                    </button>
+                  </div>
+                )}
               </div>
+              {squad ? (
+                <SquadView picks={squad.picks} gameweek={squad.gameweek} />
+              ) : (
+                <div className="text-slate-400 p-8 border border-slate-800 rounded-xl text-center bg-slate-900/50">
+                  Enter your FPL ID to see your squad analysis.
+                </div>
+              )}
             </div>
-          )}
-
-          <div>
-            <h2 className="text-xl font-semibold mb-4">AI Recommendations</h2>
-            {recommendations.length > 0 ? (
-              <div className="space-y-4">
-                {recommendations.map((rec: any, i: number) => (
-                  <TransferRecommendationCard key={i} recommendation={rec} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-muted-foreground p-8 border rounded-lg text-center">
-                {squad ? "No obvious transfers found." : "Sync team to get advice."}
+            
+            {squad && contextData && (
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-4">Elite Context</h2>
+                <TemplateComparison eliteEoMap={contextData.eliteEoMap} userPicks={squad.picks} />
               </div>
             )}
+          </div>
+
+          {/* Right Column: Analysis & Recommendations */}
+          <div className="space-y-8">
+            {analysis && (
+              <>
+                <SquadHealthCard health={analysis.health} />
+                <ProblemList problems={analysis.problems} />
+              </>
+            )}
+
+            {chipRecs.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-4">💎 Chip Strategy</h2>
+                <div className="space-y-3">
+                  {chipRecs.map((chip: AnyData, i: number) => (
+                    <ChipRecommendationCard key={i} {...chip} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h2 className="text-xl font-semibold text-white mb-4">AI Recommendations</h2>
+              {recommendations.length > 0 ? (
+                <div className="space-y-4">
+                  {recommendations.map((rec: AnyData, i: number) => (
+                    <TransferRecommendationCard key={i} recommendation={rec} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-400 p-8 border border-slate-800 rounded-xl text-center bg-slate-900/50">
+                  {squad ? "No obvious transfers found." : "Sync team to get advice."}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

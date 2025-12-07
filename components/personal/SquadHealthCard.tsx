@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, Heart, Calendar, TrendingUp } from "lucide-react";
+import { Heart, Calendar, TrendingUp } from "lucide-react";
 
 interface SquadHealthCardProps {
   health: {
@@ -15,24 +15,31 @@ interface SquadHealthCardProps {
 
 export function SquadHealthCard({ health }: SquadHealthCardProps) {
   const getScoreColor = (score: number) => {
-    if (score >= 85) return "text-green-500";
-    if (score >= 70) return "text-blue-500";
-    if (score >= 50) return "text-yellow-500";
-    return "text-red-500";
+    if (score >= 85) return "text-emerald-400";
+    if (score >= 70) return "text-blue-400";
+    if (score >= 50) return "text-yellow-400";
+    return "text-red-400";
   };
 
   const getProgressColor = (score: number) => {
-    if (score >= 85) return "bg-green-500";
+    if (score >= 85) return "bg-emerald-500";
     if (score >= 70) return "bg-blue-500";
     if (score >= 50) return "bg-yellow-500";
     return "bg-red-500";
   };
 
+  const getBorderColor = (score: number) => {
+    if (score >= 85) return "border-emerald-500/50";
+    if (score >= 70) return "border-blue-500/50";
+    if (score >= 50) return "border-yellow-500/50";
+    return "border-red-500/50";
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className={`bg-slate-900 rounded-xl border ${getBorderColor(health.score)} p-5`}>
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Squad Health</h3>
+          <h3 className="text-lg font-bold text-white">Squad Health</h3>
           <p className={`text-sm font-medium ${getScoreColor(health.score)}`}>
             {health.verdict}
           </p>
@@ -46,7 +53,7 @@ export function SquadHealthCard({ health }: SquadHealthCardProps) {
               stroke="currentColor"
               strokeWidth="4"
               fill="none"
-              className="text-gray-200 dark:text-gray-700"
+              className="text-slate-700"
             />
             <circle
               cx="32"
@@ -69,13 +76,13 @@ export function SquadHealthCard({ health }: SquadHealthCardProps) {
       <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-slate-400">
               <Heart className="w-4 h-4" />
               <span>Availability</span>
             </div>
-            <span className="font-medium">{health.breakdown.availability}/100</span>
+            <span className="font-medium text-slate-200">{health.breakdown.availability}/100</span>
           </div>
-          <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
               className={`h-full ${getProgressColor(health.breakdown.availability)} transition-all duration-500`}
               style={{ width: `${health.breakdown.availability}%` }}
@@ -85,13 +92,13 @@ export function SquadHealthCard({ health }: SquadHealthCardProps) {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-slate-400">
               <Calendar className="w-4 h-4" />
               <span>Fixtures</span>
             </div>
-            <span className="font-medium">{health.breakdown.fixtures}/100</span>
+            <span className="font-medium text-slate-200">{health.breakdown.fixtures}/100</span>
           </div>
-          <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
               className={`h-full ${getProgressColor(health.breakdown.fixtures)} transition-all duration-500`}
               style={{ width: `${health.breakdown.fixtures}%` }}
@@ -101,13 +108,13 @@ export function SquadHealthCard({ health }: SquadHealthCardProps) {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-slate-400">
               <TrendingUp className="w-4 h-4" />
               <span>Form & Value</span>
             </div>
-            <span className="font-medium">{health.breakdown.form}/100</span>
+            <span className="font-medium text-slate-200">{health.breakdown.form}/100</span>
           </div>
-          <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
               className={`h-full ${getProgressColor(health.breakdown.form)} transition-all duration-500`}
               style={{ width: `${health.breakdown.form}%` }}

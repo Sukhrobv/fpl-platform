@@ -637,9 +637,9 @@ export async function POST(req: NextRequest) {
 
 ## 9. Чеклист реализации
 
-- [ ] **ФАЗА 1:** Выбор провайдера + базовый клиент
-- [ ] **ФАЗА 2:** FPL Domain Tools (интерфейсы + реализация)
-- [ ] **ФАЗА 3:** System Prompt
-- [ ] **ФАЗА 4:** Chat API endpoint
-- [ ] **ФАЗА 5:** Frontend чат
+- [x] **ФАЗА 1:** Выбор провайдера + базовый клиент
+- [x] **ФАЗА 2:** FPL Domain Tools (интерфейсы + реализация)
+- [x] **ФАЗА 3:** System Prompt
+- [x] **ФАЗА 4:** Chat API endpoint
+- [x] **ФАЗА 5:** Frontend чат
 - [ ] **ФАЗА 6:** Тестирование сценариев

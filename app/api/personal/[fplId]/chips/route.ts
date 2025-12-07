@@ -6,10 +6,11 @@ const chipService = new ChipStrategyService();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { fplId: string } }
+  { params }: { params: Promise<{ fplId: string }> }
 ) {
   try {
-    const fplId = parseInt(params.fplId, 10);
+    const { fplId: fplIdParam } = await params;
+    const fplId = parseInt(fplIdParam, 10);
     if (isNaN(fplId)) {
       return NextResponse.json({ error: "Invalid FPL ID" }, { status: 400 });
     }
