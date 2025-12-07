@@ -23,12 +23,16 @@ interface SquadViewProps {
   picks: Pick[];
 }
 
-export function SquadView({ picks }: SquadViewProps) {
+export function SquadView({ picks, gameweek }: { picks: Pick[], gameweek: number }) {
   const startingXI = picks.filter(p => p.position <= 11);
   const bench = picks.filter(p => p.position > 11);
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Gameweek {gameweek} Results</h2>
+      </div>
+
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <div className="p-6 pb-2">
           <h3 className="text-lg font-semibold leading-none tracking-tight">Starting XI</h3>

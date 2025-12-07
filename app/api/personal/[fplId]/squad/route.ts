@@ -23,7 +23,11 @@ export async function GET(
       return NextResponse.json({ error: "User not found. Please sync first." }, { status: 404 });
     }
 
-    const squad = await service.getLatestSquad(user.id);
+    const { searchParams } = new URL(request.url);
+    const gameweekParam = searchParams.get('gameweek');
+    const gameweek = gameweekParam ? parseInt(gameweekParam) : undefined;
+
+    const squad = await service.getSquad(user.id, gameweek);
     return NextResponse.json(squad);
   } catch (error) {
     console.error("Error fetching squad:", error);

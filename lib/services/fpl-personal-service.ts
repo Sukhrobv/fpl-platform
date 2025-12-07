@@ -112,31 +112,16 @@ export class FPLPersonalService {
   }
 
   /**
-   * Get the latest squad state for a user.
+   * Get the squad state for a user, optionally for a specific gameweek.
    */
-  async getLatestSquad(userId: number) {
+  async getSquad(userId: number, gameweek?: number) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
         fantasyTeams: {
+          where: gameweek ? { gameweek } : undefined,
           orderBy: { gameweek: "desc" },
           take: 1,
-          include: {
-            picks: {
-              include: {
-                player: {
-                  include: {
-                    team: true,
-                    fplStats: {
-                      orderBy: { gameweek: "desc" },
-                      take: 1
-                    }
-                  }
-                }
-              },
-              orderBy: { position: "asc" }
-            }
-          }
         }
       }
     });
@@ -145,6 +130,30 @@ export class FPLPersonalService {
       return null;
     }
 
-    return user.fantasyTeams[0];
+    const targetTeam = user.fantasyTeams[0];
+    const targetGw = targetTeam.gameweek;
+
+    // Fetch picks with stats for the specific gameweek
+    const picks = await prisma.fantasyTeamPick.findMany({
+      where: { fantasyTeamId: targetTeam.id },
+      include: {
+        player: {
+          include: {
+            team: true,
+            fplStats: {
+              where: { gameweek: targetGw },
+              take: 1
+            }
+          }
+        }
+      },
+      orderBy: { position: "asc" }
+    });
+
+    // Reconstruct the response structure to match what the frontend expects
+    return {
+      ...targetTeam,
+      picks: picks
+    };
   }
 }

@@ -1,27 +1,44 @@
+// app/components/PredictionsTable.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, Info } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { GWCellPopover } from "./GWCellPopover";
 import { PlayerDetailsDialog } from "./PlayerDetailsDialog";
+
+type RawExplain = {
+  xG: number; xA: number; csProb: number;
+  lambdaAtt?: number; lambdaDef?: number;
+  teamXg90?: number; oppXga90?: number; oppDeep?: number; rPpda?: number;
+  pStart?: number; p60?: number; eMin?: number;
+  gShare?: number; aShare?: number; role?: string;
+};
+
+type GWContext = {
+  player?: {
+    xG90_recent?: number | null;
+    xA90_recent?: number | null;
+    shots90_recent?: number | null;
+    xG90_season?: number | null;
+    xA90_season?: number | null;
+    shots90_season?: number | null;
+  };
+  opponent?: {
+    xGA90_recent?: number | null;
+    deep_recent?: number | null;
+    shotsAllowed90_recent?: number | null;
+  };
+  venue?: { isHome: boolean };
+};
 
 interface GWData {
   xPts: number;
@@ -34,17 +51,16 @@ interface GWData {
     defense: number;
     bonus: number;
   };
-  raw: {
-    xG: number;
-    xA: number;
-    csProb: number;
-  };
+  raw: RawExplain;
+  // NEW:
+  context?: GWContext;
+  defcon?: { prob: number; mean?: number; threshold?: number } | null;
 }
 
 interface Prediction {
   playerId: number;
   playerName: string;
-  position: string;
+  position: "GOALKEEPER" | "DEFENDER" | "MIDFIELDER" | "FORWARD";
   price: number;
   team: string;
   teamShort: string;
@@ -101,15 +117,14 @@ export function PredictionsTable() {
     }));
   };
 
-  const uniqueTeams = Array.from(new Set((predictions || []).map(p => p.teamShort))).sort();
+  const uniqueTeams = Array.from(new Set(predictions.map(p => p.teamShort))).sort();
 
-  const filteredData = (predictions || [])
+  const filteredData = predictions
     .filter((p) => {
       const matchesSearch = p.playerName.toLowerCase().includes(search.toLowerCase());
       const matchesPosition = positionFilter === "ALL" || p.position === positionFilter;
       const matchesTeam = teamFilter === "ALL" || p.teamShort === teamFilter;
       const matchesPrice = p.price <= maxPrice;
-      
       return matchesSearch && matchesPosition && matchesTeam && matchesPrice;
     })
     .sort((a, b) => {
@@ -252,15 +267,16 @@ export function PredictionsTable() {
                     {player.totalXPts.toFixed(1)}
                   </TableCell>
                   {gameweeks.map(gw => {
-                    const data = player.history[gw];
-                    if (!data) return <TableCell key={gw} className="text-center text-muted-foreground">-</TableCell>;
-                    
+                    const d = player.history[gw];
+                    if (!d) {
+                      return <TableCell key={gw} className="text-center text-muted-foreground">-</TableCell>;
+                    }
                     return (
                       <TableCell key={gw} className="p-2">
-                        <GWCellPopover data={data} gw={gw}>
-                          <div className={`flex flex-col items-center justify-center p-1.5 rounded-md border cursor-pointer hover:shadow-md transition-shadow ${getXPtsColor(data.xPts)}`}>
-                            <span className="text-xs font-semibold mb-0.5">{data.opponent}</span>
-                            <span className="text-sm font-bold">{data.xPts.toFixed(1)}</span>
+                        <GWCellPopover data={d} gw={gw} position={player.position}>
+                          <div className={`flex flex-col items-center justify-center p-1.5 rounded-md border cursor-pointer hover:shadow-md transition-shadow ${getXPtsColor(d.xPts)}`}>
+                            <span className="text-xs font-semibold mb-0.5">{d.opponent}</span>
+                            <span className="text-sm font-bold">{d.xPts.toFixed(1)}</span>
                           </div>
                         </GWCellPopover>
                       </TableCell>

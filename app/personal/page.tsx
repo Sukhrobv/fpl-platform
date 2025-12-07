@@ -6,6 +6,7 @@ import { TransferRecommendationCard } from '@/components/personal/TransferRecomm
 import { TemplateComparison } from '@/components/personal/TemplateComparison';
 import { SquadHealthCard } from '@/components/personal/SquadHealthCard';
 import { ProblemList } from '@/components/personal/ProblemList';
+import { ChipRecommendationCard } from '@/components/personal/ChipRecommendationCard';
 
 export default function PersonalAdvisorPage() {
   const [fplId, setFplId] = useState('');
@@ -14,6 +15,21 @@ export default function PersonalAdvisorPage() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [contextData, setContextData] = useState<any>(null);
   const [analysis, setAnalysis] = useState<any>(null);
+  const [chipRecs, setChipRecs] = useState<any[]>([]);
+  const [viewedGw, setViewedGw] = useState<number | null>(null);
+
+  const fetchSquadForGw = async (gw: number) => {
+    try {
+      const squadRes = await fetch(`/api/personal/${fplId}/squad?gameweek=${gw}`);
+      if (squadRes.ok) {
+        const squadData = await squadRes.json();
+        setSquad(squadData);
+        setViewedGw(gw);
+      }
+    } catch (e) {
+      console.error("Failed to fetch squad for GW", gw);
+    }
+  };
 
   const handleSync = async () => {
     if (!fplId) return;
@@ -23,10 +39,11 @@ export default function PersonalAdvisorPage() {
       const syncRes = await fetch(`/api/personal/${fplId}/sync`, { method: 'POST' });
       if (!syncRes.ok) throw new Error('Sync failed');
 
-      // 2. Fetch Squad
+      // 2. Fetch Squad (Latest)
       const squadRes = await fetch(`/api/personal/${fplId}/squad`);
       const squadData = await squadRes.json();
       setSquad(squadData);
+      setViewedGw(squadData.gameweek);
 
       // 3. Fetch Recommendations
       const recRes = await fetch(`/api/personal/${fplId}/recommendations`);
@@ -42,6 +59,11 @@ export default function PersonalAdvisorPage() {
       const analysisRes = await fetch(`/api/personal/${fplId}/analysis`);
       const analysisData = await analysisRes.json();
       setAnalysis(analysisData);
+
+      // 6. Fetch Chip Recommendations
+      const chipsRes = await fetch(`/api/personal/${fplId}/chips`);
+      const chipsData = await chipsRes.json();
+      setChipRecs(chipsData);
 
     } catch (error) {
       console.error(error);
@@ -77,9 +99,30 @@ export default function PersonalAdvisorPage() {
         {/* Left Column: Squad */}
         <div className="lg:col-span-2 space-y-8">
           <div>
-            <h2 className="text-xl font-semibold mb-4">Your Squad</h2>
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Your Squad</h2>
+                {viewedGw && (
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => fetchSquadForGw(viewedGw - 1)}
+                            className="px-3 py-1 text-xs border rounded hover:bg-muted"
+                            disabled={viewedGw <= 1}
+                        >
+                            ← GW{viewedGw - 1}
+                        </button>
+                        <span className="text-sm font-medium">GW {viewedGw}</span>
+                        <button 
+                            onClick={() => fetchSquadForGw(viewedGw + 1)}
+                            className="px-3 py-1 text-xs border rounded hover:bg-muted"
+                            disabled={viewedGw >= 38}
+                        >
+                            GW{viewedGw + 1} →
+                        </button>
+                    </div>
+                )}
+            </div>
             {squad ? (
-              <SquadView picks={squad.picks} />
+              <SquadView picks={squad.picks} gameweek={squad.gameweek} />
             ) : (
               <div className="text-muted-foreground p-8 border rounded-lg text-center">
                 Enter your FPL ID to see your squad analysis.
@@ -102,6 +145,17 @@ export default function PersonalAdvisorPage() {
               <SquadHealthCard health={analysis.health} />
               <ProblemList problems={analysis.problems} />
             </>
+          )}
+
+          {chipRecs.length > 0 && (
+            <div>
+              <h2 className="text-xl font-semibold mb-4">💎 Chip Strategy</h2>
+              <div className="space-y-3">
+                {chipRecs.map((chip: any, i: number) => (
+                  <ChipRecommendationCard key={i} {...chip} />
+                ))}
+              </div>
+            </div>
           )}
 
           <div>

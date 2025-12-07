@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import { PredictionComparisonChart } from './PredictionComparisonChart';
 
 interface TransferRecommendation {
   playerOut: {
@@ -7,6 +8,7 @@ interface TransferRecommendation {
     team: { shortName: string };
     form: number;
     xPts?: number;
+    history?: Record<number, any>;
   };
   playerIn: {
     webName: string;
@@ -14,6 +16,7 @@ interface TransferRecommendation {
     form: number;
     nowCost: number;
     xPts?: number;
+    history?: Record<number, any>;
   };
   xPtsDelta: number;
   reason: string;
@@ -78,6 +81,13 @@ export function TransferRecommendationCard({ recommendation }: TransferRecommend
           )}
         </div>
       </div>
+
+      <PredictionComparisonChart 
+        playerOutName={recommendation.playerOut.webName}
+        playerInName={recommendation.playerIn.webName}
+        playerOutHistory={recommendation.playerOut.history}
+        playerInHistory={recommendation.playerIn.history}
+      />
 
       <div className="mt-4 text-xs text-muted-foreground bg-muted p-2 rounded">
         💡 {recommendation.reason}

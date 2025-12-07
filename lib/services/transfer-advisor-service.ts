@@ -4,8 +4,8 @@ import { FPLPredictionService } from "./fpl-prediction-service";
 import { getBootstrapData } from "../fplClient";
 
 export interface TransferRecommendation {
-  playerOut: any & { xPts: number };
-  playerIn: any & { xPts: number };
+  playerOut: any & { xPts: number; history?: Record<number, any> };
+  playerIn: any & { xPts: number; history?: Record<number, any> };
   xPtsDelta: number;
   reason: string;
   ownershipContext?: {
@@ -68,85 +68,95 @@ export class TransferAdvisorService {
     // 2. Calculate xPts for current squad
     const squadPlayerIds = currentSquad.picks.map(p => p.playerId);
     const squadProjections = await this.predictionService.getProjections(gameweeks, { playerIds: squadPlayerIds });
-    const squadProjMap = new Map(squadProjections.map(p => [p.playerId, p.totalXPts]));
+    const squadProjMap = new Map(squadProjections.map(p => [p.playerId, p]));
 
-    // 3. Identify weakest link (lowest projected xPts in starting XI)
+    // 3. Identify weakest links (lowest projected xPts in starting XI)
     const startingXI = currentSquad.picks.filter(p => p.position <= 11);
     
     // Sort by projected xPts (asc)
     const sortedByXPts = [...startingXI].sort((a, b) => {
-      const xPtsA = squadProjMap.get(a.playerId) || 0;
-      const xPtsB = squadProjMap.get(b.playerId) || 0;
-      return xPtsA - xPtsB;
+      const projA = squadProjMap.get(a.playerId);
+      const projB = squadProjMap.get(b.playerId);
+      return (projA?.totalXPts || 0) - (projB?.totalXPts || 0);
     });
     
-    // Take the worst player
-    const playerOutPick = sortedByXPts[0];
-    const playerOut = playerOutPick.player;
-    const playerOutXPts = squadProjMap.get(playerOut.id) || 0;
-    
-    // 4. Find replacement
-    // Same position, price <= sellingPrice + bank
-    const budget = ((playerOutPick as any).sellingPrice || playerOut.nowCost) + currentSquad.bank;
-    
-    // Get top candidates by xPts for this position
-    // We need to fetch projections for ALL players in this position within budget?
-    // Optimization: Fetch top 50 by form/price first, then calculate xPts for them.
-    // Or better: The prediction service can handle it if we pass filters.
-    // But calculating for ALL players is heavy.
-    // Let's fetch players who are fit and within budget, then project.
-    
-    const candidatePlayers = await prisma.player.findMany({
-      where: {
-        position: playerOut.position,
-        nowCost: { lte: budget },
-        id: { not: playerOut.id },
-        status: 'a', // Available
-        NOT: {
-          id: { in: squadPlayerIds }
-        }
-      },
-      orderBy: {
-        form: 'desc' // Pre-filter by form to limit calculation size
-      },
-      take: 20, // Analyze top 20 candidates
-      include: {
-        team: true,
-        externalStats: { orderBy: { gameweek: "desc" }, take: 1 }
-      }
-    });
-
-    const candidateIds = candidatePlayers.map(p => p.id);
-    const candidateProjections = await this.predictionService.getProjections(gameweeks, { playerIds: candidateIds });
-
+    // Take bottom 3 players
+    const candidatesOut = sortedByXPts.slice(0, 3);
     const recommendations: TransferRecommendation[] = [];
 
-    for (const proj of candidateProjections) {
-      const xPtsDelta = proj.totalXPts - playerOutXPts;
-      
-      if (xPtsDelta > 2.0) { // Minimum improvement threshold
-        const candidate = candidatePlayers.find(p => p.id === proj.playerId);
-        if (!candidate) continue;
-
-        const eo = eliteEoMap[candidate.fplId] || 0;
-        const isDifferential = eo < 10;
-        const isTemplate = eo > 50;
-
-        recommendations.push({
-          playerOut: { ...playerOut, xPts: playerOutXPts },
-          playerIn: { ...candidate, xPts: proj.totalXPts },
-          xPtsDelta: xPtsDelta,
-          reason: `Projected +${xPtsDelta.toFixed(1)} pts over 5 GWs`,
-          ownershipContext: {
-            eliteEo: eo,
-            isDifferential,
-            isTemplate
+    for (const playerOutPick of candidatesOut) {
+        const playerOut = playerOutPick.player;
+        const playerOutProj = squadProjMap.get(playerOut.id);
+        const playerOutXPts = playerOutProj?.totalXPts || 0;
+        
+        // 4. Find replacement for THIS player
+        const budget = ((playerOutPick as any).sellingPrice || playerOut.nowCost) + currentSquad.bank;
+        
+        const candidatePlayers = await prisma.player.findMany({
+          where: {
+            position: playerOut.position,
+            nowCost: { lte: budget },
+            id: { not: playerOut.id },
+            status: 'a', // Available
+            NOT: {
+              id: { in: squadPlayerIds }
+            }
+          },
+          orderBy: {
+            form: 'desc' 
+          },
+          take: 10, // Top 10 by form is enough for "best replacement" search
+          include: {
+            team: true,
+            externalStats: { orderBy: { gameweek: "desc" }, take: 1 }
           }
         });
-      }
+
+        const candidateIds = candidatePlayers.map(p => p.id);
+        const candidateProjections = await this.predictionService.getProjections(gameweeks, { playerIds: candidateIds });
+
+        // Find the BEST replacement for this specific playerOut
+        let bestRec: TransferRecommendation | null = null;
+        let maxDelta = 0;
+
+        for (const proj of candidateProjections) {
+          const xPtsDelta = proj.totalXPts - playerOutXPts;
+          
+          if (xPtsDelta > 1.5 && xPtsDelta > maxDelta) { // Lower threshold slightly to ensure we get options
+            const candidate = candidatePlayers.find(p => p.id === proj.playerId);
+            if (!candidate) continue;
+
+            const eo = eliteEoMap[candidate.fplId] || 0;
+            const isDifferential = eo < 10;
+            const isTemplate = eo > 50;
+
+            // If playerOut is missing from projections (e.g. < 5% start prob), generate 0-history
+            const outHistory = playerOutProj?.history || gameweeks.reduce((acc, gw) => {
+              acc[gw] = { xPts: 0, fixture: "-", opponent: "-" };
+              return acc;
+            }, {} as Record<number, any>);
+
+            maxDelta = xPtsDelta;
+            bestRec = {
+              playerOut: { ...playerOut, xPts: playerOutXPts, history: outHistory },
+              playerIn: { ...candidate, xPts: proj.totalXPts, history: proj.history },
+              xPtsDelta: xPtsDelta,
+              reason: `Upgrade ${playerOut.webName}: +${xPtsDelta.toFixed(1)} xPts`,
+              ownershipContext: {
+                eliteEo: eo,
+                isDifferential,
+                isTemplate
+              }
+            };
+          }
+        }
+
+        if (bestRec) {
+            recommendations.push(bestRec);
+        }
     }
 
-    // Sort by xPtsDelta
-    return recommendations.sort((a, b) => b.xPtsDelta - a.xPtsDelta).slice(0, 5);
+    // Sort recommendations by impact (xPtsDelta)
+    return recommendations.sort((a, b) => b.xPtsDelta - a.xPtsDelta);
   }
 }

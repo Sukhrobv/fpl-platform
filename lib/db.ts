@@ -10,6 +10,7 @@
 import { PrismaClient } from '@prisma/client';
 import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
+import config from '@/prisma.config';
 
 // Reuse the Prisma client across hot‑reloaded modules.  Without this
 // guard Next.js will create multiple clients during development which
@@ -19,6 +20,7 @@ const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefi
 export const prisma: PrismaClient =
   globalForPrisma.prisma ??
   new PrismaClient({
+    datasourceUrl: config.datasource.url,
     log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
 

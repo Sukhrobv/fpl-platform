@@ -59,7 +59,7 @@ async function syncUnderstat() {
 
         const match = findBestMatch(uPlayer.player_name, teamCandidates);
         
-        if (match && match.confidence > 0.75) {
+        if (match && match.confidence > 0.7) {
            fplPlayerId = parseInt(match.candidateId);
            
            // Check if this FPL player is already mapped to Understat

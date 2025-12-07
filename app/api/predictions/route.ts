@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { PrismaClient, Position } from "@prisma/client";
+import { Position } from "@prisma/client";
+import { prisma } from "@/lib/db";
 import { FPLPredictionService } from "@/lib/services/fpl-prediction-service";
 
-const prisma = new PrismaClient();
 const predictionService = new FPLPredictionService();
 
 export async function GET(request: Request) {
@@ -36,8 +36,5 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Error generating predictions:", error);
     return NextResponse.json({ error: "Failed to generate predictions" }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }
-
