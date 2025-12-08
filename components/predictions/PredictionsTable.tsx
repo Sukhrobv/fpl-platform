@@ -71,8 +71,8 @@ interface Prediction {
 }
 
 const TEAM_CODES: Record<string, number> = {
-  ARS: 3, AVL: 7, BOU: 91, BRE: 94, BHA: 36, BUR: 3, CHE: 8, CRY: 31, EVE: 11, FUL: 54, 
-  IPS: 40, LEE: 11, LEI: 13, LIV: 14, MCI: 43, MUN: 1, NEW: 4, NFO: 17, SOU: 20, 
+  ARS: 3, AVL: 7, BOU: 91, BRE: 94, BHA: 36, BUR: 90, CHE: 8, CRY: 31, EVE: 11, FUL: 54, 
+  IPS: 40, LEE: 2, LEI: 13, LIV: 14, MCI: 43, MUN: 1, NEW: 4, NFO: 17, SOU: 20, 
   SUN: 17, TOT: 6, WHU: 21, WOL: 39
 };
 
@@ -286,14 +286,13 @@ export function PredictionsTable() {
                     <TableCell className="font-medium sticky left-0 bg-slate-900 group-hover:bg-slate-800 transition-colors z-20 pl-6 border-r border-slate-800">
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          {TEAM_CODES[player.teamShort] && (
-                            <img 
-                              src={`https://resources.premierleague.com/premierleague/badges/50/t${TEAM_CODES[player.teamShort]}.png`} 
-                              alt={player.teamShort}
-                              className="w-9 h-9 object-contain drop-shadow-md"
-                              loading="lazy"
-                            />
-                          )}
+                          <img
+  src={`/logos/${player.teamShort}.png`}
+  alt={player.teamShort}
+  className="w-9 h-9 object-contain drop-shadow-md"
+  loading="lazy"
+/>
+
                           <div className="absolute -bottom-1 -right-1 bg-slate-900 text-[10px] px-1 rounded border border-slate-700 text-slate-400">
                             {player.position.substring(0, 3)}
                           </div>

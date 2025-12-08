@@ -243,7 +243,7 @@ export class FPLPredictionService {
           chanceOfPlaying: player.chanceOfPlaying ?? null
         });
 
-        if (minPrediction.start_probability < 0.05) return null; // Skip bench warmers optimization
+
 
         // --- C. PREPARE PLAYER INPUT (Per 90s) ---
         const playerInput: PlayerInput = {
