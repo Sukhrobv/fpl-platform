@@ -166,10 +166,20 @@ async function callGroq(
         
         if (typeof failedGeneration === "string") {
           // Парсим формат <function=NAME ARGS></function>
-          const match = failedGeneration.match(/<function=(\w+)(.*?)><\/function>/);
+          // Regex должен быть гибким: может быть > перед </function>, может не быть.
+          // Также аргументы могут быть обернуты в скобки (ARGS).
+          const match = failedGeneration.match(/<function=(\w+)(.*?)<\/function>/);
           if (match) {
             const toolName = match[1];
-            const argsString = match[2];
+            let argsString = match[2].trim();
+
+            // Очистка аргументов
+            if (argsString.endsWith(">")) {
+              argsString = argsString.slice(0, -1).trim();
+            }
+            if (argsString.startsWith("(") && argsString.endsWith(")")) {
+              argsString = argsString.slice(1, -1).trim();
+            }
             
             try {
               const args = JSON.parse(argsString);

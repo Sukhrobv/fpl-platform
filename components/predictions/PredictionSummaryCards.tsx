@@ -44,7 +44,6 @@ export function PredictionSummaryCards({ predictions }: SummaryCardsProps) {
       player: topCaptain,
       metric: `${topCaptain?.totalXPts.toFixed(1)} xPts`,
       color: "text-emerald-500",
-      bg: "bg-emerald-500/10 border-emerald-500/20"
     },
     {
       title: "Best Value",
@@ -52,7 +51,6 @@ export function PredictionSummaryCards({ predictions }: SummaryCardsProps) {
       player: bestValue,
       metric: `${(bestValue?.totalXPts / (bestValue?.price / 10)).toFixed(2)} pts/£m`,
       color: "text-blue-500",
-      bg: "bg-blue-500/10 border-blue-500/20"
     },
     {
       title: "Top Defender",
@@ -60,7 +58,6 @@ export function PredictionSummaryCards({ predictions }: SummaryCardsProps) {
       player: topDefender,
       metric: `${topDefender?.totalXPts.toFixed(1)} xPts`,
       color: "text-purple-500",
-      bg: "bg-purple-500/10 border-purple-500/20"
     },
     {
       title: "Top Midfielder",
@@ -68,16 +65,15 @@ export function PredictionSummaryCards({ predictions }: SummaryCardsProps) {
       player: topMid,
       metric: `${topMid?.totalXPts.toFixed(1)} xPts`,
       color: "text-amber-500",
-      bg: "bg-amber-500/10 border-amber-500/20"
     }
   ];
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {cards.map((card, idx) => (
-        <Card key={idx} className={`border backdrop-blur-sm ${card.bg}`}>
+        <Card key={idx} className="bg-slate-900 border-slate-800 hover:border-emerald-600/50 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-slate-400">
               {card.title}
             </CardTitle>
             <card.icon className={`h-4 w-4 ${card.color}`} />
@@ -85,9 +81,9 @@ export function PredictionSummaryCards({ predictions }: SummaryCardsProps) {
           <CardContent>
             {card.player ? (
               <div className="flex flex-col">
-                <div className="text-2xl font-bold truncate">{card.player.playerName}</div>
+                <div className="text-2xl font-bold truncate text-white">{card.player.playerName}</div>
                 <div className="flex items-center justify-between mt-1">
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-400">
                     {card.player.teamShort} • £{(card.player.price / 10).toFixed(1)}
                   </p>
                   <span className={`text-sm font-bold ${card.color}`}>
@@ -96,7 +92,7 @@ export function PredictionSummaryCards({ predictions }: SummaryCardsProps) {
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">No data</div>
+              <div className="text-sm text-slate-400">No data</div>
             )}
           </CardContent>
         </Card>

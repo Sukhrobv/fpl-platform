@@ -4,8 +4,7 @@
 import * as React from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Target, Shield, Clock, TrendingUp, Activity } from "lucide-react";
+import { Target, Shield, Clock } from "lucide-react";
 
 type RawExplain = {
   xG: number; xA: number; csProb: number;
@@ -59,136 +58,132 @@ const pct = (x?: number | null, d = 0) =>
   x == null || Number.isNaN(x) ? "—" : `${(Number(x) * 100).toFixed(d)}%`;
 
 export function GWCellPopover({ children, data, gw, position }: GWCellPopoverProps) {
-  const { raw, context, defcon } = data;
+  const { raw, context } = data;
   const shotsPlayer = context?.player?.shots90_recent ?? context?.player?.shots90_season ?? null;
-  const shotsAllowedOpp = context?.opponent?.shotsAllowed90_recent ?? null;
   const xgaOpp = context?.opponent?.xGA90_recent ?? raw.oppXga90 ?? null;
   
   const pStartNum = (raw.pStart ?? 0) * 100;
-  const p60Num = (raw.p60 ?? 0) * 100;
   const csProbNum = (raw.csProb ?? 0) * 100;
-  const defconProbNum = (defcon?.prob ?? 0) * 100;
 
   return (
     <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent align="start" side="top" className="w-[380px] p-4">
+      <PopoverContent align="start" side="top" className="w-[400px] p-0 bg-[#0f111a] border border-slate-800 shadow-xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between mb-3 pb-2 border-b">
-          <div>
-            <div className="font-semibold text-base">{data.fixture}</div>
-            <div className="text-xs text-muted-foreground">Gameweek {gw}</div>
+        <div className="p-5 bg-[#141620] border-b border-slate-800">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Gameweek {gw}</div>
+              <div className="text-2xl font-black text-white leading-tight mb-2">{data.fixture}</div>
+              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 font-bold px-2 py-0.5 text-xs rounded-md">
+                {data.isHome ? "DOM" : "AWAY"}
+              </Badge>
+            </div>
+            <div className="text-right">
+              <div className="text-4xl font-black text-emerald-400 leading-none tracking-tight">{data.xPts.toFixed(1)}</div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">XPTS</div>
+            </div>
           </div>
-          <Badge variant="outline" className="text-lg font-bold px-3 py-1">
-            {data.xPts.toFixed(1)} pts
-          </Badge>
         </div>
 
-        <div className="space-y-3">
+        <div className="p-4 space-y-4">
           {/* Attack Section */}
-          <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 rounded-lg p-3 border border-orange-200 dark:border-orange-900">
+          <div>
             <div className="flex items-center gap-2 mb-2">
-              <Target className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              <span className="font-semibold text-sm">Атака</span>
+              <Target className="h-4 w-4 text-orange-500" />
+              <span className="font-bold text-xs uppercase tracking-wider text-orange-500">Ataka</span>
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Ожидаемые голы (xG)</span>
-                <Badge variant="secondary" className="font-mono">{fmt(raw.xG)}</Badge>
+            
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="bg-[#141620] border border-slate-800 rounded-lg p-3">
+                <div className="text-[10px] font-medium text-slate-500 mb-1 uppercase">xG (Голы)</div>
+                <div className="text-2xl font-bold text-white tracking-tight">{fmt(raw.xG)}</div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Ожидаемые ассисты (xA)</span>
-                <Badge variant="secondary" className="font-mono">{fmt(raw.xA)}</Badge>
+              <div className="bg-[#141620] border border-slate-800 rounded-lg p-3">
+                <div className="text-[10px] font-medium text-slate-500 mb-1 uppercase">xA (Ассисты)</div>
+                <div className="text-2xl font-bold text-white tracking-tight">{fmt(raw.xA)}</div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Удары за 90 мин</span>
-                <span className="font-medium">{fmt(shotsPlayer)} vs {fmt(shotsAllowedOpp, 1)} <span className="text-xs text-muted-foreground">допускает</span></span>
+            </div>
+
+            <div className="space-y-2 px-1">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400 font-medium">Удары / 90</span>
+                <span className="font-bold text-white">{fmt(shotsPlayer, 1)}</span>
               </div>
               {xgaOpp != null && (
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Оборона соперника (xGA)</span>
-                  <Badge variant={xgaOpp >= 1.5 ? "default" : "outline"} className="font-mono">
-                    {fmt(xgaOpp)} <span className="text-xs ml-1">L5</span>
-                  </Badge>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400 font-medium">Допущенные xGA (L5)</span>
+                  <span className="font-bold text-white">{fmt(xgaOpp)}</span>
                 </div>
               )}
             </div>
           </div>
 
           {/* Playing Time Section */}
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-900">
+          <div>
             <div className="flex items-center gap-2 mb-2">
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <span className="font-semibold text-sm">Игровое время</span>
+              <Clock className="h-4 w-4 text-blue-500" />
+              <span className="font-bold text-xs uppercase tracking-wider text-blue-500">Игровое время</span>
             </div>
-            <div className="space-y-2.5">
+            <div className="bg-[#141620] border border-slate-800 rounded-lg p-3 space-y-3">
               <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs text-muted-foreground">Вероятность старта</span>
-                  <span className="text-xs font-semibold">{pct(raw.pStart)}</span>
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-xs font-medium text-slate-400">Вероятность старта</span>
+                  <span className="text-xs font-bold text-white">{pct(raw.pStart)}</span>
                 </div>
-                <Progress value={pStartNum} className="h-1.5" />
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs text-muted-foreground">Вероятность 60+ минут</span>
-                  <span className="text-xs font-semibold">{pct(raw.p60)}</span>
+                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500 rounded-full" 
+                    style={{ width: `${pStartNum}%` }}
+                  />
                 </div>
-                <Progress value={p60Num} className="h-1.5" />
               </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-muted-foreground text-sm">Ожидаемые минуты</span>
-                <Badge variant="outline" className="font-mono">{fmt(raw.eMin, 0)}′</Badge>
+              <div className="flex justify-between items-center pt-1 border-t border-slate-800/50">
+                <span className="text-xs font-medium text-slate-400">Ожидаемые минуты</span>
+                <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-0 font-mono text-xs">
+                  {fmt(raw.eMin, 0)} min
+                </Badge>
               </div>
             </div>
           </div>
 
           {/* Defense Section */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-3 border border-green-200 dark:border-green-900">
+          <div>
             <div className="flex items-center gap-2 mb-2">
-              <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <span className="font-semibold text-sm">Оборона</span>
+              <Shield className="h-4 w-4 text-emerald-500" />
+              <span className="font-bold text-xs uppercase tracking-wider text-emerald-500">Оборона</span>
             </div>
-            <div className="space-y-2.5">
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs text-muted-foreground">Вероятность чистого листа</span>
-                  <span className="text-xs font-semibold">{pct(raw.csProb)}</span>
-                </div>
-                <Progress value={csProbNum} className="h-1.5" />
+            <div className="bg-[#141620] border border-slate-800 rounded-lg p-3">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-xs font-medium text-slate-400">Вероятность CS</span>
+                <span className="text-xs font-bold text-white">{pct(raw.csProb)}</span>
               </div>
-              {defcon?.prob != null && position !== "GOALKEEPER" && (
-                <div className="pt-1 border-t border-green-200 dark:border-green-800">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-muted-foreground">DEFCON бонус (порог {defcon.threshold ?? (position === "DEFENDER" ? 10 : 12)})</span>
-                    <span className="text-xs font-semibold">{pct(defcon.prob)}</span>
-                  </div>
-                  <Progress value={defconProbNum} className="h-1.5" />
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Ожидаемо: <span className="font-semibold text-foreground">+{(2 * (defcon.prob || 0)).toFixed(2)}</span> очка
-                  </div>
-                </div>
-              )}
+              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500 rounded-full" 
+                  style={{ width: `${csProbNum}%` }}
+                />
+              </div>
             </div>
           </div>
 
           {/* Breakdown Summary */}
-          <div className="grid grid-cols-4 gap-2 pt-2 border-t">
-            <div className="text-center">
-              <div className="text-xs text-muted-foreground mb-0.5">Атака</div>
-              <div className="font-semibold text-sm">{data.breakdown.attack.toFixed(1)}</div>
+          <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-800">
+            <div className="text-center p-2 bg-[#141620] rounded-lg border border-slate-800">
+              <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">ATT</div>
+              <div className="font-bold text-white text-sm">{data.breakdown.attack.toFixed(1)}</div>
             </div>
-            <div className="text-center">
-              <div className="text-xs text-muted-foreground mb-0.5">Оборона</div>
-              <div className="font-semibold text-sm">{data.breakdown.defense.toFixed(1)}</div>
+            <div className="text-center p-2 bg-[#141620] rounded-lg border border-slate-800">
+              <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">DEF</div>
+              <div className="font-bold text-white text-sm">{data.breakdown.defense.toFixed(1)}</div>
             </div>
-            <div className="text-center">
-              <div className="text-xs text-muted-foreground mb-0.5">Бонус</div>
-              <div className="font-semibold text-sm">{data.breakdown.bonus.toFixed(1)}</div>
+            <div className="text-center p-2 bg-[#141620] rounded-lg border border-slate-800">
+              <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">BONUS</div>
+              <div className="font-bold text-white text-sm">{data.breakdown.bonus.toFixed(1)}</div>
             </div>
-            <div className="text-center">
-              <div className="text-xs text-muted-foreground mb-0.5">Выход</div>
-              <div className="font-semibold text-sm">{data.breakdown.appearance.toFixed(1)}</div>
+            <div className="text-center p-2 bg-[#141620] rounded-lg border border-slate-800">
+              <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">APP</div>
+              <div className="font-bold text-white text-sm">{data.breakdown.appearance.toFixed(1)}</div>
             </div>
           </div>
         </div>

@@ -71,8 +71,9 @@ interface Prediction {
 }
 
 const TEAM_CODES: Record<string, number> = {
-  ARS: 3, AVL: 7, BOU: 91, BRE: 94, BHA: 36, CHE: 8, CRY: 31, EVE: 11, FUL: 54, IPS: 40,
-  LEI: 13, LIV: 14, MCI: 43, MUN: 1, NEW: 4, NFO: 17, SOU: 20, TOT: 6, WHU: 21, WOL: 39
+  ARS: 3, AVL: 7, BOU: 91, BRE: 94, BHA: 36, BUR: 3, CHE: 8, CRY: 31, EVE: 11, FUL: 54, 
+  IPS: 40, LEE: 11, LEI: 13, LIV: 14, MCI: 43, MUN: 1, NEW: 4, NFO: 17, SOU: 20, 
+  SUN: 17, TOT: 6, WHU: 21, WOL: 39
 };
 
 export function PredictionsTable() {
@@ -164,7 +165,7 @@ export function PredictionsTable() {
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
       <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-      <p className="text-muted-foreground animate-pulse">Analyzing fixtures & stats...</p>
+      <p className="text-slate-400 animate-pulse">Analyzing fixtures & stats...</p>
     </div>
   );
 
@@ -173,11 +174,11 @@ export function PredictionsTable() {
       {/* Summary Cards */}
       <PredictionSummaryCards predictions={predictions} />
 
-      {/* Main Content Area with Glassmorphism */}
-      <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl overflow-hidden">
+      {/* Main Content Area */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
         
         {/* Toolbar */}
-        <div className="p-4 border-b border-white/5 flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-white/5">
+        <div className="p-4 border-b border-slate-800 flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-slate-900">
           <div className="flex items-center gap-2 w-full lg:w-auto">
             <div className="relative w-full lg:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -185,7 +186,7 @@ export function PredictionsTable() {
                 placeholder="Search player..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 bg-black/20 border-white/10 focus:border-emerald-500/50 transition-colors"
+                className="pl-9 bg-slate-800 border-slate-700 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors"
               />
             </div>
             
@@ -194,10 +195,10 @@ export function PredictionsTable() {
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
             <Select value={positionFilter} onValueChange={setPositionFilter}>
-              <SelectTrigger className="w-[140px] bg-black/20 border-white/10">
+              <SelectTrigger className="w-[140px] bg-slate-800 border-slate-700">
                 <SelectValue placeholder="Position" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-slate-900 border-slate-800">
                 <SelectItem value="ALL">All Positions</SelectItem>
                 <SelectItem value="GOALKEEPER">GK</SelectItem>
                 <SelectItem value="DEFENDER">DEF</SelectItem>
@@ -207,10 +208,10 @@ export function PredictionsTable() {
             </Select>
 
             <Select value={teamFilter} onValueChange={setTeamFilter}>
-              <SelectTrigger className="w-[140px] bg-black/20 border-white/10">
+              <SelectTrigger className="w-[140px] bg-slate-800 border-slate-700">
                 <SelectValue placeholder="Team" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-slate-900 border-slate-800">
                 <SelectItem value="ALL">All Teams</SelectItem>
                 {uniqueTeams.map(team => (
                   <SelectItem key={team} value={team}>{team}</SelectItem>
@@ -220,12 +221,12 @@ export function PredictionsTable() {
 
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="bg-black/20 border-white/10 gap-2">
+                <Button variant="outline" className="bg-slate-800 border-slate-700 gap-2">
                   <Filter className="h-4 w-4" />
                   Price: £{(maxPrice / 10).toFixed(1)}m
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 backdrop-blur-xl bg-black/90 border-white/10">
+              <PopoverContent className="w-80 bg-slate-900 border-slate-800">
                 <div className="space-y-4">
                   <h4 className="font-medium leading-none">Max Price</h4>
                   <div className="flex items-center gap-4">
@@ -250,22 +251,22 @@ export function PredictionsTable() {
         {/* Table */}
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader className="bg-black/40">
-              <TableRow className="hover:bg-transparent border-white/5">
-                <TableHead className="w-[250px] sticky left-0 bg-black/80 backdrop-blur-md z-20 pl-6">Player</TableHead>
-                <TableHead className="w-[100px] text-center">Team</TableHead>
-                <TableHead className="w-[100px] text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('price')}>
+            <TableHeader className="bg-slate-900">
+              <TableRow className="hover:bg-transparent border-slate-800">
+                <TableHead className="w-[250px] sticky left-0 bg-slate-900 z-20 pl-6 text-slate-400">Player</TableHead>
+                <TableHead className="w-[100px] text-center text-slate-400">Team</TableHead>
+                <TableHead className="w-[100px] text-center cursor-pointer hover:text-white transition-colors text-slate-400" onClick={() => handleSort('price')}>
                   <div className="flex items-center justify-center gap-1">
                     Price <ArrowUpDown className="h-3 w-3" />
                   </div>
                 </TableHead>
-                <TableHead className="w-[100px] text-center font-bold bg-white/5 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => handleSort('totalXPts')}>
+                <TableHead className="w-[100px] text-center font-bold bg-slate-800 cursor-pointer hover:bg-slate-700 transition-colors" onClick={() => handleSort('totalXPts')}>
                   <div className="flex items-center justify-center gap-1 text-emerald-400">
                     Total <ArrowUpDown className="h-3 w-3" />
                   </div>
                 </TableHead>
                 {gameweeks.map(gw => (
-                  <TableHead key={gw} className="text-center min-w-[110px] text-xs uppercase tracking-wider text-muted-foreground">
+                  <TableHead key={gw} className="text-center min-w-[110px] text-xs uppercase tracking-wider text-slate-400">
                     GW {gw}
                   </TableHead>
                 ))}
@@ -275,14 +276,14 @@ export function PredictionsTable() {
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5 + gameweeks.length} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={5 + gameweeks.length} className="h-32 text-center text-slate-400">
                     No players found matching your filters.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredData.map((player) => (
-                  <TableRow key={player.playerId} className="hover:bg-white/5 border-white/5 transition-colors group">
-                    <TableCell className="font-medium sticky left-0 bg-[#0a0a0a] group-hover:bg-[#111] transition-colors z-20 pl-6 border-r border-white/5">
+                  <TableRow key={player.playerId} className="hover:bg-slate-800 border-slate-800 transition-colors group">
+                    <TableCell className="font-medium sticky left-0 bg-slate-900 group-hover:bg-slate-800 transition-colors z-20 pl-6 border-r border-slate-800">
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           {TEAM_CODES[player.teamShort] && (
@@ -293,7 +294,7 @@ export function PredictionsTable() {
                               loading="lazy"
                             />
                           )}
-                          <div className="absolute -bottom-1 -right-1 bg-black/80 text-[10px] px-1 rounded border border-white/10 text-muted-foreground">
+                          <div className="absolute -bottom-1 -right-1 bg-slate-900 text-[10px] px-1 rounded border border-slate-700 text-slate-400">
                             {player.position.substring(0, 3)}
                           </div>
                         </div>
@@ -304,15 +305,15 @@ export function PredictionsTable() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-center text-muted-foreground text-xs">{player.teamShort}</TableCell>
+                    <TableCell className="text-center text-slate-400 text-xs">{player.teamShort}</TableCell>
                     <TableCell className="text-center font-mono text-sm">£{(player.price / 10).toFixed(1)}</TableCell>
-                    <TableCell className="text-center font-bold text-lg bg-white/5 border-x border-white/5 text-emerald-400 font-mono">
+                    <TableCell className="text-center font-bold text-lg bg-slate-800 border-x border-slate-800 text-emerald-400 font-mono">
                       {player.totalXPts.toFixed(1)}
                     </TableCell>
                     {gameweeks.map(gw => {
                       const d = player.history[gw];
                       if (!d) {
-                        return <TableCell key={gw} className="text-center text-muted-foreground/30">-</TableCell>;
+                        return <TableCell key={gw} className="text-center text-slate-500">-</TableCell>;
                       }
                       const style = getHeatmapStyle(d.xPts);
                       return (
@@ -338,7 +339,7 @@ export function PredictionsTable() {
                           setSelectedPlayer(player);
                           setDialogOpen(true);
                         }}
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 hover:text-emerald-400"
+                        className="h-8 w-8 opacity-50 group-hover:opacity-100 transition-opacity hover:bg-slate-700 hover:text-emerald-400 text-slate-500"
                       >
                         <Info className="h-4 w-4" />
                       </Button>
@@ -350,7 +351,7 @@ export function PredictionsTable() {
           </Table>
         </div>
         
-        <div className="p-4 border-t border-white/5 bg-white/5 text-xs text-center text-muted-foreground">
+        <div className="p-4 border-t border-slate-800 bg-slate-900 text-xs text-center text-slate-400">
           Showing {filteredData.length} players • Projections based on xG, xA, and recent form.
         </div>
       </div>
