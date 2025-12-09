@@ -55,7 +55,7 @@ export class FbrefCollector {
    */
   parseFixtures(html: string, season: string): FbrefFixture[] {
     if (!html) return [];
-    const rows = html.match(/<tr[^>]*?>[\\s\\S]*?<\\/tr>/g) || [];
+    const rows = html.match(/<tr[^>]*?>[\s\S]*?<\/tr>/g) || [];
     const fixtures: FbrefFixture[] = [];
 
     for (const row of rows) {
@@ -85,7 +85,7 @@ export class FbrefCollector {
    */
   parseLeagueTable(html: string, season: string): FbrefTableEntry[] {
     if (!html) return [];
-    const rows = html.match(/<tr[^>]*?>[\\s\\S]*?<\\/tr>/g) || [];
+    const rows = html.match(/<tr[^>]*?>[\s\S]*?<\/tr>/g) || [];
     const table: FbrefTableEntry[] = [];
 
     for (const row of rows) {

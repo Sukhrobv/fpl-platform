@@ -10,11 +10,13 @@ export interface PlayerInput {
   xA90_season: number;
   shots90_season: number;
   keyPasses90_season: number;
+  touchesInBox90_season?: number; // B4: for involvement_score
   // Per 90 (recent)
   xG90_recent: number;
   xA90_recent: number;
   shots90_recent: number;
   keyPasses90_recent: number;
+  touchesInBox90_recent?: number; // B4: for involvement_score
   // Minutes & availability
   minutes_recent: number;
   season_minutes: number;

@@ -140,8 +140,19 @@ export class FPLPredictionService {
 
         const recentMatchStats: BasicMatchStat[] = recentAllStats.map(mapToBasic);
 
+        // Build features BEFORE minutes prediction to pass as context
+        const trendFeatures = buildTrendFeatures(recentMatchStats);
+        const roleFeatures = buildRoleFeatures(recentMatchStats);
+        const injuryFeatures = buildInjuryFeatures(recentMatchStats);
+        const scheduleFeatures = buildScheduleFeatures(recentMatchStats);
+
         const aggRecent = aggregateStats(recentPlayedStats, 5);
         const recentMinsTotal = aggRecent.minutes;
+
+        // Calculate perSub_ratio for role-based minutes penalty
+        const perSubRatio = roleFeatures.perStart_xG > 0.01
+          ? roleFeatures.perSub_xG / roleFeatures.perStart_xG
+          : 0;
 
         const minPrediction = predictMinutesAndProbability({
           position: player.position,
@@ -151,6 +162,15 @@ export class FPLPredictionService {
             games: Math.max(recentPlayedStats.length, 1),
           },
           chanceOfPlaying: player.chanceOfPlaying ?? null,
+          context: {
+            rest_days: scheduleFeatures.rest_days,
+            has_midweek_europe_before: scheduleFeatures.has_midweek_europe_before,
+            has_midweek_europe_after: scheduleFeatures.has_midweek_europe_after,
+            days_out: injuryFeatures.days_out,
+            games_missed: injuryFeatures.games_missed,
+            game_index_since_return: injuryFeatures.game_index_since_return,
+            perSub_ratio: perSubRatio,
+          },
         });
 
         // if (minPrediction.start_probability < 0.05) return null;
@@ -189,11 +209,7 @@ export class FPLPredictionService {
           ppda_recent: teamRecentAgg.count ? teamRecentAgg.ppdaSum / teamRecentAgg.count : undefined,
         };
 
-        const trendFeatures = buildTrendFeatures(recentMatchStats);
-        const roleFeatures = buildRoleFeatures(recentMatchStats);
-        const injuryFeatures = buildInjuryFeatures(recentMatchStats);
         const teamStrengthFeatures = buildTeamStrengthFeatures({ ...teamInputBase, isHome: true }, leagueAvg);
-        const scheduleFeatures = buildScheduleFeatures(recentMatchStats);
 
         const gwData: Record<number, any> = {};
         let totalXPts = 0;
