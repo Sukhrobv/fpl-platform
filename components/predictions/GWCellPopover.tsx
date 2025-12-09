@@ -76,7 +76,7 @@ export function GWCellPopover({ children, data, gw, position }: GWCellPopoverPro
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Gameweek {gw}</div>
               <div className="text-2xl font-black text-white leading-tight mb-2">{data.fixture}</div>
               <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 font-bold px-2 py-0.5 text-xs rounded-md">
-                {data.isHome ? "DOM" : "AWAY"}
+                {data.isHome ? "HOME" : "AWAY"}
               </Badge>
             </div>
             <div className="text-right">

@@ -70,12 +70,6 @@ interface Prediction {
   history: Record<number, GWData>;
 }
 
-const TEAM_CODES: Record<string, number> = {
-  ARS: 3, AVL: 7, BOU: 91, BRE: 94, BHA: 36, BUR: 90, CHE: 8, CRY: 31, EVE: 11, FUL: 54, 
-  IPS: 40, LEE: 2, LEI: 13, LIV: 14, MCI: 43, MUN: 1, NEW: 4, NFO: 17, SOU: 20, 
-  SUN: 17, TOT: 6, WHU: 21, WOL: 39
-};
-
 export function PredictionsTable() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [gameweeks, setGameweeks] = useState<number[]>([]);
@@ -198,7 +192,7 @@ export function PredictionsTable() {
               <SelectTrigger className="w-[140px] bg-slate-800 border-slate-700">
                 <SelectValue placeholder="Position" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-800">
+              <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
                 <SelectItem value="ALL">All Positions</SelectItem>
                 <SelectItem value="GOALKEEPER">GK</SelectItem>
                 <SelectItem value="DEFENDER">DEF</SelectItem>
@@ -211,7 +205,7 @@ export function PredictionsTable() {
               <SelectTrigger className="w-[140px] bg-slate-800 border-slate-700">
                 <SelectValue placeholder="Team" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-800">
+              <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
                 <SelectItem value="ALL">All Teams</SelectItem>
                 {uniqueTeams.map(team => (
                   <SelectItem key={team} value={team}>{team}</SelectItem>
