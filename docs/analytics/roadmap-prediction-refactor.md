@@ -43,6 +43,13 @@
 
 ---
 
+### B1 Implementation Notes (2025-12-09)
+- Created modular scaffold under `lib/services/prediction/` (`types`, `utils`, `minutes`, `attack`, `points`, `engine`, `index`).
+- Refactored `FPLPredictionService` to consume the new engine/helpers and re-exported via `lib/services/predictionService.ts` for compatibility.
+- Next: add Feature Expansion modules for B2 (schedule/injury/role/trend/team strength), plan ML toggle/dataset scaffolds (B6/B7), and Monte Carlo placeholder (B8).
+
+---
+
 ## B2. Feature Expansion (MVP)
 **Цель:** добавить контекстные признаки без ML, чтобы поднять качество базовых евристик.**
 
@@ -51,6 +58,13 @@
 - Role (`/features/roleFeatures.ts`): `perStart_xG`, `perSub_xG`, `perStart_xA`, `perSub_xA`.
 - Trends (`/features/trendFeatures.ts`): rolling slope (xG, xA), rolling variance, rolling averages (3/5/10 games).
 - Team strength: `points_per_game`, `xG_diff`, `attack_rank`, `defense_rank`.
+
+### B2 Implementation Notes (2025-12-09)
+- Added feature calculators under `lib/services/prediction/features/` (schedule, injury, role, trends, team strength) with safe defaults.
+- Wired feature outputs into `FPLPredictionService` context (non-breaking, informational only) to prep for later model upgrades.
+- Schedule features now derive `rest_days` from recent matches; Europe flags/points-per-game still pending.
+- FBRef collector now parses fixtures/table rows via `data-stat` attributes (`lib/collectors/fbrefCollector.ts`) with heuristic parsing; Europe mapping remains TODO/placeholder-sensitive to FBRef markup.
+- Pending: integrate richer schedule data (fixture dates/europe flags), add points_per_game sourcing, and plug features into ML toggles (B6/B7) and simulations (B8).
 
 ---
 

@@ -10,6 +10,12 @@ import {
   safePer90Team,
   aggregateStats,
   share,
+  buildTrendFeatures,
+  buildRoleFeatures,
+  buildInjuryFeatures,
+  buildTeamStrengthFeatures,
+  buildScheduleFeatures,
+  BasicMatchStat,
 } from "./prediction";
 
 const predictionEngine = new PredictionEngine();
@@ -118,9 +124,21 @@ export class FPLPredictionService {
           };
         }
 
-        const recentPlayedStats = player.externalStats
-          .filter((s) => s.gameweek > 0 && (s.minutes || 0) > 0)
-          .slice(0, 5);
+        const recentAllStats = player.externalStats.filter((s) => s.gameweek > 0).slice(0, 10);
+        const recentPlayedStats = recentAllStats.filter((s) => (s.minutes || 0) > 0).slice(0, 5);
+
+        const mapToBasic = (s: any): BasicMatchStat => ({
+          minutes: s.minutes,
+          xG: s.xG,
+          xA: s.xA,
+          shots: s.shots,
+          keyPasses: s.keyPasses,
+          kickoff: (s as any).kickoffTime ?? null,
+          competition: (s as any).competition ?? null,
+          isEurope: (s as any).isEurope ?? false,
+        });
+
+        const recentMatchStats: BasicMatchStat[] = recentAllStats.map(mapToBasic);
 
         const aggRecent = aggregateStats(recentPlayedStats, 5);
         const recentMinsTotal = aggRecent.minutes;
@@ -170,6 +188,12 @@ export class FPLPredictionService {
           deep_recent: safePer90Team(teamRecentAgg.deep, teamRecentAgg.minutes / 11),
           ppda_recent: teamRecentAgg.count ? teamRecentAgg.ppdaSum / teamRecentAgg.count : undefined,
         };
+
+        const trendFeatures = buildTrendFeatures(recentMatchStats);
+        const roleFeatures = buildRoleFeatures(recentMatchStats);
+        const injuryFeatures = buildInjuryFeatures(recentMatchStats);
+        const teamStrengthFeatures = buildTeamStrengthFeatures({ ...teamInputBase, isHome: true }, leagueAvg);
+        const scheduleFeatures = buildScheduleFeatures(recentMatchStats);
 
         const gwData: Record<number, any> = {};
         let totalXPts = 0;
@@ -260,6 +284,13 @@ export class FPLPredictionService {
               shotsAllowed90_recent: opponentInput.shotsAllowed90,
             },
             venue: { isHome },
+            features: {
+              trend: trendFeatures,
+              role: roleFeatures,
+              injury: injuryFeatures,
+              team: teamStrengthFeatures,
+              schedule: scheduleFeatures,
+            },
           };
 
           gwData[gw] = {

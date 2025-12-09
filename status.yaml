@@ -1,5 +1,5 @@
 ﻿# FPL Platform - Status File
-# Updated: 2025-12-09 20:39
+# Updated: 2025-12-09 21:28
 # Chat ID: initial_development_session
 # GitHub: https://github.com/Sukhrobv/fpl-platform
 
@@ -7,15 +7,15 @@ project_info:
   name: "FPL Analytics Platform"
   version: "0.1.0"
   status: "Active Development"
-  last_sync: "2025-12-09 20:39"
+  last_sync: "2025-12-09 21:28"
   repository: "https://github.com/Sukhrobv/fpl-platform"
   description: "Personal FPL analytics tool with Next.js monolith architecture"
 
   current_position:
     chapter: 5
-    stage: "B1"
-    substage: "Kickoff"
-    description: "Prediction Engine Refactor roadmap (docs/analytics/roadmap-prediction-refactor.md) in progress. Kicking off B1: split prediction service into features/minutes/attack/points/utils packages before moving to feature/ML upgrades."
+    stage: "B2"
+    substage: "Feature Expansion"
+    description: "Prediction Engine refactor progressing: B1 modular split completed. B2 feature expansion underway with new feature calculators and FBRef collector parsing added."
 
   progress:
     completed_chapters:
@@ -156,15 +156,15 @@ project_info:
                   - "React Chat UI with streaming-like UX"
 
     current_work:
-      task: "Prediction Engine Refactor roadmap implementation (B1 kickoff)"
+      task: "Prediction Engine Refactor roadmap implementation (B2 feature expansion)"
       started: "2025-12-09"
       blockers: []
-      notes: "Transitioning from AI Assistant scenario verification to Prediction Engine refactor. Focusing on B1: service/module split and type/DTO alignment ahead of feature expansion (B2+) and ML toggles (B6/B7)."
+      notes: "Modular engine in place. Added feature calculators (schedule/injury/role/trend/team strength) with safe defaults, wired into prediction context, and implemented heuristic FBRef parsing for fixtures/table (Europe mapping still TODO)."
 
     next_steps:
-      immediate: "Implement B1 scaffolding: reorganize prediction services into features/minutes/attack/points/utils with clear interfaces."
+      immediate: "Harden B2 feature inputs (Europe flags/PPG via FBRef) and keep scoring stable."
       upcoming:
-        - "Draft Feature Expansion plan for B2 (schedule, injury, role, trends, team strength)."
+        - "Enrich schedule data and role/injury signals once source data is available."
         - "Outline datasets/ML toggle strategy for B6/B7 and Monte Carlo placeholder for B8."
 
 technical_stack:
