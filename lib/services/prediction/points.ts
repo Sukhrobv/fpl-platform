@@ -148,3 +148,97 @@ export function calculateSmartBonus(opts: {
   return Math.min(3, Math.max(0, expected_bonus));
 }
 
+// ============================================================================
+// B4.5: DEFCON Points Calculator (Defensive Contributions)
+// ============================================================================
+
+/**
+ * FPL 2025/26 Defensive Contributions Rules:
+ * - DEF/GK: 10 CBIT (Clearances, Blocks, Interceptions, Tackles) = 2 pts
+ * - MID/FWD: 12 CBIRT (CBIT + Recoveries) = 2 pts
+ * - Maximum: 2 pts per match (capped)
+ */
+
+export interface DefconInput {
+  position: Position;
+  clearances: number;
+  blocks: number;
+  interceptions: number;
+  tackles: number;
+  recoveries: number; // Only counts for MID/FWD
+}
+
+export interface DefconResult {
+  points: number;        // 0 or 2
+  totalActions: number;  // CBIT or CBIRT
+  threshold: number;     // 10 for DEF, 12 for MID/FWD
+  qualified: boolean;
+}
+
+/**
+ * Calculate DEFCON points for a single match
+ */
+export function calculateDefconPoints(input: DefconInput): DefconResult {
+  const { position, clearances, blocks, interceptions, tackles, recoveries } = input;
+  
+  const cbit = clearances + blocks + interceptions + tackles;
+  
+  // DEF/GK: only CBIT counts, threshold = 10
+  if (position === "DEFENDER" || position === "GOALKEEPER") {
+    const qualified = cbit >= 10;
+    return {
+      points: qualified ? 2 : 0,
+      totalActions: cbit,
+      threshold: 10,
+      qualified,
+    };
+  }
+  
+  // MID/FWD: CBIRT counts (includes recoveries), threshold = 12
+  const cbirt = cbit + recoveries;
+  const qualified = cbirt >= 12;
+  return {
+    points: qualified ? 2 : 0,
+    totalActions: cbirt,
+    threshold: 12,
+    qualified,
+  };
+}
+
+/**
+ * Calculate expected DEFCON points based on per-90 averages
+ * Uses probability estimation
+ */
+export function calculateExpectedDefconPoints(opts: {
+  position: Position;
+  cbit90: number;     // Average CBIT per 90
+  cbirt90: number;    // Average CBIRT per 90 (for MID/FWD)
+  prob_60: number;    // Probability of playing 60+ minutes
+}): number {
+  const { position, cbit90, cbirt90, prob_60 } = opts;
+  
+  // Threshold and lambda based on position
+  const threshold = (position === "DEFENDER" || position === "GOALKEEPER") ? 10 : 12;
+  const lambda = (position === "DEFENDER" || position === "GOALKEEPER") ? cbit90 : cbirt90;
+  
+  // Probability of reaching threshold (Poisson CDF complement)
+  const prob_defcon = 1 - poissonCdf(lambda, threshold - 1);
+  
+  // Expected points = P(DEFCON) * P(60+) * 2
+  // Need to play 60+ minutes for defensive stats to accumulate meaningfully
+  return prob_defcon * prob_60 * 2;
+}
+
+/**
+ * Poisson CDF: P(X <= k) for Poisson(lambda)
+ */
+function poissonCdf(lambda: number, k: number): number {
+  if (lambda <= 0) return k >= 0 ? 1 : 0;
+  let sum = 0;
+  let term = Math.exp(-lambda);
+  for (let i = 0; i <= k; i++) {
+    if (i > 0) term *= lambda / i;
+    sum += term;
+  }
+  return sum;
+}

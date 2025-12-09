@@ -112,7 +112,7 @@ export function lambdaAttack(
       betaH * (home ? 1 : -0.1) +
       trendAdjustment
   );
-  return Math.max(0.3, Math.min(3.8, val));
+  return Math.max(0.5, Math.min(1.8, val)); // Fixed: realistic range
 }
 
 export function lambdaDefense(

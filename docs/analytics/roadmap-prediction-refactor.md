@@ -115,6 +115,29 @@
 - ✅ Added `touchesInBox90_season/recent` to `PlayerInput` type.
 - ✅ Created 9 unit tests in `tests/prediction/attack.test.ts` (all passing).
 
+### B4.5 — Defensive Contributions (DEFCON) Integration
+
+- Собрать публичные правила `DEFCON` (Defensive contributions)
+- Определить список `required defensive stats`
+- Настроить `data-pipeline` для `сбора defensive stats`
+- Добавить `defensive features` + `builder`
+- Реализовать `defconPoints` в `points model`
+- Написать тесты и провести бек-тест
+
+### B4.5 Implementation Notes (2025-12-10)
+
+**Official FPL 2025/26 Rules:**
+
+- DEF/GK: 10 CBIT (Clearances, Blocks, Interceptions, Tackles) = 2 pts
+- MID/FWD: 12 CBIRT (CBIT + Ball Recoveries) = 2 pts
+- Max 2 pts per match
+
+**Implementation:**
+
+- ✅ `defenseFeatures.ts` — `buildDefenseFeatures()`, CBIT/CBIRT per-90, `prob_defcon`
+- ✅ `points.ts` — `calculateDefconPoints()`, `calculateExpectedDefconPoints()`
+- ✅ `defcon.test.ts` — 10 unit tests (all passing)
+
 ---
 
 ## B5. Points Model Upgrade
@@ -149,6 +172,13 @@
 - Attack dataset (CSV): `AttackFeatures`, `y_goals`, `y_assists`.
 - Скрипты подготовки: `prepare_minutes_dataset.ts`, `prepare_attack_dataset.ts` (в `/ml/data/`).
 
+### B6 Implementation Notes (2025-12-09)
+
+- ✅ Created `/ml/data/` directory for ML datasets.
+- ✅ Implemented `prepare_minutes_dataset.ts` with Schedule, Injury, Role features and y_start/y_60 targets.
+- ✅ Implemented `prepare_attack_dataset.ts` with Per90, Trend features and y_goals/y_assists/y_xG/y_xA targets.
+- ✅ Added README.md with usage instructions.
+
 ---
 
 ## B7. Интеграция ML моделей
@@ -162,6 +192,15 @@
   `else return evaluateHeuristic(features)`
 - Флаг: `USE_ML` в `.env` (по умолчанию выключен).
 
+### B7 Implementation Notes (2025-12-09)
+
+- ✅ Created `/lib/services/prediction/ml/` module with full infrastructure.
+- ✅ `config.ts`: USE_ML, USE_ML_MINUTES, USE_ML_ATTACK toggles, FALLBACK_ON_ERROR.
+- ✅ `types.ts`: MinutesMLInput/Output, AttackMLInput/Output interfaces.
+- ✅ `loader.ts`: Placeholder ML models with heuristic-based predictions.
+- ✅ `minutesWrapper.ts`: `predictMinutesWithML()` with automatic heuristic ⇆ ML toggle.
+- ✅ Ready for actual trained models (replace PlaceholderMinutesModel/AttackModel).
+
 ---
 
 ## B8. Monte Carlo Simulation
@@ -171,6 +210,15 @@
 - Папка: `/services/prediction/simulation/`.
 - Функция: `simulateGame(playerPrediction, N = 1000)` → distribution of points.
 - Источники распределений: minutes model, xG/xA distributions, CS distribution.
+
+### B8 Implementation Notes (2025-12-10)
+
+- ✅ Created `/lib/services/prediction/simulation/` module.
+- ✅ `types.ts`: SimulationInput, SimulationResult, SimulationStats, SimulationOutput.
+- ✅ `sampling.ts`: samplePoisson, sampleMinutes, sampleGoals, sampleAssists, sampleCleanSheet, sampleDefcon, sampleBonus.
+- ✅ `simulator.ts`: `simulateGame(N=1000)`, `quickSimulate(N=100)`, points calculation, stats aggregation.
+- ✅ Output: mean, median, stdDev, percentiles, distribution histogram, haul_probability, blank_probability.
+- ✅ 9 unit tests in `tests/prediction/simulation.test.ts` (all passing).
 
 ---
 

@@ -1,11 +1,14 @@
 import { POS_MINUTES_SETTINGS } from "./minutes";
 import { lambdaAttack, lambdaDefense, calculateInvolvementScore, calculateAssistBoost, AttackContext } from "./attack";
-import { calculateSmartBonus } from "./points";
+import { calculateSmartBonus, calculatePoissonGoalPoints, calculatePoissonAssistPoints, calculateExpectedDefconPoints } from "./points";
 import { LeagueAverages, PlayerInput, PredictionResult, TeamInput } from "./types";
+import { DefenseFeatures } from "./features";
 
-/** B4: Extended context for attack model calculations */
+/** B4/B4.5: Extended context for attack and defense model calculations */
 export interface EngineContext {
   attackContext?: AttackContext;
+  /** B4.5: Defense features for DEFCON calculation */
+  defenseFeatures?: DefenseFeatures;
 }
 
 export class PredictionEngine {
@@ -49,7 +52,7 @@ export class PredictionEngine {
       prob_start * (POS_MINUTES_SETTINGS[player.position].muStart / 90) +
       (1 - prob_start) * 0.05;
 
-    const explosiveness = xG90 > 0.45 ? 1.15 : 1.0;
+    const explosiveness = xG90 > 0.45 ? 1.05 : 1.0; // Fixed: reduced from 1.15
 
     const team_xG_base = Math.max(0.1, team_xG90);
     const player_share_xG = xG90 / team_xG_base;
@@ -72,21 +75,43 @@ export class PredictionEngine {
     });
 
     // B4: Apply involvement multiplier (high involvement = more reliable)
-    const involvementMultiplier = 1 + involvementScore * 0.15;
+    const involvementMultiplier = 1 + involvementScore * 0.05; // Fixed: reduced from 0.15
 
-    const xG_hat = m_fac * lambda_att * player_share_xG * team_xG_base * explosiveness * involvementMultiplier;
-    const xA_hat = m_fac * lambda_att * player_share_xA * team_xG_base * (1 + assistBoost);
+    // Opponent adjustment: how much better/worse opponent is than league average
+    const opp_adjustment = lambda_att > 1.0 ? Math.min(1.15, lambda_att) : Math.max(0.85, lambda_att);
+
+    // xG_hat: expected xG for THIS match = player's xG90 rate * match-adjusted minutes * opponent adjustment
+    // Simplified formula: no longer multiplies player_share * team_xG (which just equals xG90)
+    const xG_hat = m_fac * xG90 * opp_adjustment * explosiveness;
+    const xA_hat = m_fac * xA90 * opp_adjustment * (1 + assistBoost * 0.5);
 
     const pts_app = 2 * prob_60 + prob_start * 0.1;
 
-    const goal_pts = player.position === "FORWARD" ? 4 : player.position === "MIDFIELDER" ? 5 : 6;
-    const cs_pts = player.position === "FORWARD" ? 0 : player.position === "MIDFIELDER" ? 1 : 4;
+    // B5: Use Poisson distribution for more accurate attack points
+    const goalPtsResult = calculatePoissonGoalPoints({
+      xG: xG_hat,
+      position: player.position,
+    });
+    const assistPtsResult = calculatePoissonAssistPoints({
+      xA: xA_hat,
+    });
+    const pts_attack = goalPtsResult.expectedPoints + assistPtsResult.expectedPoints;
 
-    const pts_attack = goal_pts * xG_hat + 3 * xA_hat;
+    const cs_pts = player.position === "FORWARD" ? 0 : player.position === "MIDFIELDER" ? 1 : 4;
 
     const pts_defense =
       cs_pts * prob_cs * prob_60 -
       (player.position === "DEFENDER" || player.position === "GOALKEEPER" ? 0.5 * lambda_def * prob_60 : 0);
+
+    // B4.5: Calculate expected DEFCON points
+    const pts_defcon = context?.defenseFeatures
+      ? calculateExpectedDefconPoints({
+          position: player.position,
+          cbit90: context.defenseFeatures.cbit90,
+          cbirt90: context.defenseFeatures.cbirt90,
+          prob_60,
+        })
+      : 0;
 
     const pts_bonus = calculateSmartBonus({
       position: player.position,
@@ -97,7 +122,7 @@ export class PredictionEngine {
       isKeyPlayer: player.price > 8.0,
     });
 
-    const total_raw = pts_app + pts_attack + pts_defense + pts_bonus;
+    const total_raw = pts_app + pts_attack + pts_defense + pts_defcon + pts_bonus;
 
     return {
       playerId: player.id,
@@ -107,6 +132,7 @@ export class PredictionEngine {
         appearance: Number(pts_app.toFixed(2)),
         attack: Number(pts_attack.toFixed(2)),
         defense: Number(pts_defense.toFixed(2)),
+        defcon: Number(pts_defcon.toFixed(2)),
         bonus: Number(pts_bonus.toFixed(2)),
         other: 0,
       },

@@ -56,6 +56,7 @@ export interface PredictionResult {
     appearance: number;
     attack: number;
     defense: number;
+    defcon: number; // B4.5: Defensive contributions points
     bonus: number;
     other: number;
   };

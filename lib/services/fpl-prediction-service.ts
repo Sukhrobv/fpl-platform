@@ -15,8 +15,10 @@ import {
   buildInjuryFeatures,
   buildTeamStrengthFeatures,
   buildScheduleFeatures,
+  buildDefenseFeatures,
   BasicMatchStat,
 } from "./prediction";
+import { calculateExpectedDefconPoints } from "./prediction/points";
 
 const predictionEngine = new PredictionEngine();
 
@@ -148,6 +150,9 @@ export class FPLPredictionService {
 
         const aggRecent = aggregateStats(recentPlayedStats, 5);
         const recentMinsTotal = aggRecent.minutes;
+        
+        // B4.5: Build defense features for DEFCON calculation
+        const defenseFeatures = buildDefenseFeatures(recentMatchStats as any, recentMinsTotal);
 
         // Calculate perSub_ratio for role-based minutes penalty
         const perSubRatio = roleFeatures.perStart_xG > 0.01
@@ -265,7 +270,8 @@ export class FPLPredictionService {
             playerInput,
             teamInput,
             opponentInput,
-            leagueAvg
+            leagueAvg,
+            { defenseFeatures } // B4.5: Pass defense features for DEFCON calculation
           );
 
           const extendedRaw = {
@@ -306,7 +312,15 @@ export class FPLPredictionService {
               injury: injuryFeatures,
               team: teamStrengthFeatures,
               schedule: scheduleFeatures,
+              defense: defenseFeatures,
             },
+            // B4.5: Expected DEFCON points
+            expectedDefcon: calculateExpectedDefconPoints({
+              position: player.position,
+              cbit90: defenseFeatures.cbit90,
+              cbirt90: defenseFeatures.cbirt90,
+              prob_60: minPrediction.prob_60,
+            }),
           };
 
           gwData[gw] = {

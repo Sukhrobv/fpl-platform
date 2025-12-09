@@ -4,3 +4,4 @@ export * from "./injuryFeatures";
 export * from "./roleFeatures";
 export * from "./trendFeatures";
 export * from "./teamStrength";
+export * from "./defenseFeatures";

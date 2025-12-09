@@ -42,6 +42,7 @@ interface GWCellPopoverProps {
       appearance: number;
       attack: number;
       defense: number;
+      defcon?: number; // B4.5: Defensive contributions
       bonus: number;
     };
     raw: RawExplain;
@@ -168,7 +169,7 @@ export function GWCellPopover({ children, data, gw, position }: GWCellPopoverPro
           </div>
 
           {/* Breakdown Summary */}
-          <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-800">
+          <div className="grid grid-cols-5 gap-2 pt-4 border-t border-slate-800">
             <div className="text-center p-2 bg-[#141620] rounded-lg border border-slate-800">
               <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">ATT</div>
               <div className="font-bold text-white text-sm">{data.breakdown.attack.toFixed(1)}</div>
@@ -176,6 +177,10 @@ export function GWCellPopover({ children, data, gw, position }: GWCellPopoverPro
             <div className="text-center p-2 bg-[#141620] rounded-lg border border-slate-800">
               <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">DEF</div>
               <div className="font-bold text-white text-sm">{data.breakdown.defense.toFixed(1)}</div>
+            </div>
+            <div className="text-center p-2 bg-[#141620] rounded-lg border border-slate-800">
+              <div className="text-[10px] font-bold text-purple-500 uppercase mb-1">DEFCON</div>
+              <div className="font-bold text-purple-400 text-sm">{(data.breakdown.defcon ?? 0).toFixed(1)}</div>
             </div>
             <div className="text-center p-2 bg-[#141620] rounded-lg border border-slate-800">
               <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">BONUS</div>
