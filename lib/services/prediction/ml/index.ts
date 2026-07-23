@@ -3,7 +3,7 @@
  */
 
 export { ML_CONFIG, isMLEnabled, logMLConfig } from "./config";
-export { 
+export type { 
   MinutesMLInput, 
   MinutesMLOutput, 
   AttackMLInput, 
@@ -17,7 +17,9 @@ export {
   areModelsReady 
 } from "./loader";
 export { 
-  predictMinutesWithML, 
+  predictMinutesWithML
+} from "./minutesWrapper";
+export type { 
   MinutesWrapperInput, 
   MinutesWrapperOutput 
 } from "./minutesWrapper";

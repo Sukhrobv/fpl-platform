@@ -1,18 +1,9 @@
-import { PredictionsTable } from "@/components/predictions/PredictionsTable";
+import { PlayerExplorer } from "@/components/player-explorer/PlayerExplorer";
 
 export default function PredictionsPage() {
   return (
-    <div className="min-h-screen bg-slate-950 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Predictions</h1>
-          <p className="text-slate-400">
-            Advanced xPts models powered by Understat xG/xA data and proprietary algorithms.
-          </p>
-        </div>
-        
-        <PredictionsTable />
-      </div>
+    <div className="mx-auto w-full max-w-[100rem] px-4 py-6 sm:px-6 sm:py-8">
+      <PlayerExplorer />
     </div>
   );
 }

@@ -1,6 +1,4 @@
-﻿
-
-import { connectDB, disconnectDB, prisma } from "@/lib/db";
+﻿import { connectDB, disconnectDB, prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { syncFplData, type SyncOptions } from "@/lib/services/fplSync";
 
@@ -13,6 +11,22 @@ function parseArgs(argv: string[]): CliOptions {
   for (const arg of argv) {
     if (arg === "--help" || arg === "-h") {
       options.help = true;
+      continue;
+    }
+    if (arg === "--history-only") {
+      options.historyOnly = true;
+      continue;
+    }
+    if (arg === "--roster-only") {
+      options.rosterOnly = true;
+      continue;
+    }
+    if (arg === "--rollover") {
+      options.allowSeasonRollover = true;
+      continue;
+    }
+    if (arg === "--activate") {
+      options.activateSeason = true;
       continue;
     }
     const [key, value] = arg.split("=");
@@ -47,7 +61,9 @@ function parseArgs(argv: string[]): CliOptions {
 }
 
 function printHelp(): void {
-  logger.info(`FPL Sync Script\n\nUsage: tsx scripts/sync-fpl.ts [options]\n\nOptions:\n  --events=1,2,3         Comma or space separated list of gameweeks to sync\n  --rpm=45               Override requests-per-minute throttle\n  --concurrency=4        Max concurrent FPL requests\n  --max-retries=3        Number of retry attempts for failed calls\n  --retry-base=500       Base delay (ms) used for exponential backoff\n  --retry-jitter=200     Random jitter (ms) added to each retry delay\n  --help                 Show this message`);
+  logger.info(
+    `FPL Sync Script\n\nUsage: tsx scripts/sync-fpl.ts [options]\n\nOptions:\n  --events=1,2,3         Comma or space separated list of gameweeks to sync\n  --history-only         Skip roster/fixture writes and restore only event history\n  --roster-only          Validate and sync roster/fixtures without event history\n  --rollover             Explicitly authorize a consecutive new-season transformation\n  --activate             Activate the validated rollover (requires --rollover; never implied)\n  --rpm=45               Override requests-per-minute throttle\n  --concurrency=4        Max concurrent FPL requests\n  --max-retries=3        Number of retry attempts for failed calls\n  --retry-base=500       Base delay (ms) used for exponential backoff\n  --retry-jitter=200     Random jitter (ms) added to each retry delay\n  --help                 Show this message`,
+  );
 }
 
 async function main(): Promise<void> {
@@ -66,8 +82,11 @@ async function main(): Promise<void> {
   try {
     const summary = await syncFplData(options, { prisma, logger });
     logger.info(
-      `Sync log ${summary.syncLogId ?? "n/a"} | Events=${summary.eventsProcessed.join(",") || "none"} | Teams +${summary.teamsCreated}/${summary.teamsUpdated} | Players +${summary.playersCreated}/${summary.playersUpdated} | Matches +${summary.matchesCreated}/${summary.matchesUpdated} | Stats ${summary.statsUpserted}`,
+      `Sync log ${summary.syncLogId ?? "n/a"} | Season=${summary.season} | Events=${summary.eventsProcessed.join(",") || "none"} | Teams +${summary.teamsCreated}/${summary.teamsUpdated} | Players +${summary.playersCreated}/${summary.playersUpdated} | Matches +${summary.matchesCreated}/${summary.matchesUpdated} | Stats ${summary.statsUpserted} | Rollover=${summary.rolloverActivated ? "activated" : "no"}`,
     );
+    if (summary.rolloverReport) {
+      logger.info(`Rollover report: ${JSON.stringify(summary.rolloverReport)}`);
+    }
   } catch (error) {
     logger.error("FPL sync failed", error);
     process.exitCode = 1;

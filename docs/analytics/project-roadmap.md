@@ -17,6 +17,24 @@
 
 ---
 
+## 🚨 ТЕКУЩИЙ ВОССТАНОВИТЕЛЬНЫЙ ЭТАП: D0 RELIABLE DATA FOUNDATION
+
+**Статус: D0.6.5 GW1 READINESS ГОТОВ · АКТИВАЦИЯ ОЖИДАЕТ ЯВНОГО РЕШЕНИЯ** | **Критичность: 🔴 P0**
+
+После потери прежнего advanced-потока дальнейшая работа над Prediction Engine заблокирована до восстановления надёжного потока данных.
+
+- FPL API — канонический ростер, fixtures, xG/xA и DEFCON.
+- Публичный Premier League PulseLive JSON — touches, key passes, carries и прямой Opta ID для маппинга.
+- Understat — optional enrichment.
+
+**Детальный план:** `docs/analytics/data-foundation-roadmap.md`
+
+**Текущая задача:** D0.6.5 readiness-пакет собран и прошёл audit: 2026/27 roster/fixtures соединены с versioned priors 2025/26, availability и confidence для каждого игрока определены, а current form не добавлена. Активация и публикация остаются выключенными до отдельного явного решения пользователя. Детальный план: `docs/analytics/data-foundation-roadmap.md`. UI0.6 остаётся завершённым.
+
+**Запрет перехода:** не возвращаться к Advanced-этапам, пока D0 Definition of Done не выполнен и пользователь явно не разрешил переход.
+
+---
+
 ## 📚 ГЛАВА 1: ФУНДАМЕНТ И АРХИТЕКТУРА
 
 **Срок: 2 недели** | **Критичность: 🔴 КРИТИЧНО**

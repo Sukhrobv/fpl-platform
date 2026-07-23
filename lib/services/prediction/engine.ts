@@ -1,7 +1,7 @@
 import { POS_MINUTES_SETTINGS } from "./minutes";
 import { lambdaAttack, lambdaDefense, calculateInvolvementScore, calculateAssistBoost, AttackContext } from "./attack";
 import { calculateSmartBonus, calculatePoissonGoalPoints, calculatePoissonAssistPoints, calculateExpectedDefconPoints } from "./points";
-import { LeagueAverages, PlayerInput, PredictionResult, TeamInput } from "./types";
+import { DebugTrace, LeagueAverages, PlayerInput, PredictionResult, TeamInput } from "./types";
 import { DefenseFeatures } from "./features";
 
 /** B4/B4.5: Extended context for attack and defense model calculations */
@@ -9,6 +9,8 @@ export interface EngineContext {
   attackContext?: AttackContext;
   /** B4.5: Defense features for DEFCON calculation */
   defenseFeatures?: DefenseFeatures;
+  /** Enable debug trace in output */
+  enableDebug?: boolean;
 }
 
 export class PredictionEngine {
@@ -51,6 +53,8 @@ export class PredictionEngine {
     const m_fac =
       prob_start * (POS_MINUTES_SETTINGS[player.position].muStart / 90) +
       (1 - prob_start) * 0.05;
+
+    const expected_minutes = m_fac * 90;
 
     const explosiveness = xG90 > 0.45 ? 1.05 : 1.0; // Fixed: reduced from 1.15
 
@@ -98,31 +102,96 @@ export class PredictionEngine {
     const pts_attack = goalPtsResult.expectedPoints + assistPtsResult.expectedPoints;
 
     const cs_pts = player.position === "FORWARD" ? 0 : player.position === "MIDFIELDER" ? 1 : 4;
+    const goals_conceded_penalty = player.position === "DEFENDER" || player.position === "GOALKEEPER" 
+      ? 0.5 * lambda_def * prob_60 
+      : 0;
 
-    const pts_defense =
-      cs_pts * prob_cs * prob_60 -
-      (player.position === "DEFENDER" || player.position === "GOALKEEPER" ? 0.5 * lambda_def * prob_60 : 0);
+    const pts_defense = cs_pts * prob_cs * prob_60 - goals_conceded_penalty;
 
     // B4.5: Calculate expected DEFCON points
-    const pts_defcon = context?.defenseFeatures
+    const defconEnabled = !!context?.defenseFeatures;
+    const cbit90 = context?.defenseFeatures?.cbit90 ?? 0;
+    const cbirt90 = context?.defenseFeatures?.cbirt90 ?? 0;
+    const pts_defcon = defconEnabled
       ? calculateExpectedDefconPoints({
           position: player.position,
-          cbit90: context.defenseFeatures.cbit90,
-          cbirt90: context.defenseFeatures.cbirt90,
+          cbit90,
+          cbirt90,
           prob_60,
         })
       : 0;
 
+    const isKeyPlayer = player.price > 8.0;
     const pts_bonus = calculateSmartBonus({
       position: player.position,
       xG_hat,
       xA_hat,
       prob_cs,
       win_prob,
-      isKeyPlayer: player.price > 8.0,
+      isKeyPlayer,
     });
 
     const total_raw = pts_app + pts_attack + pts_defense + pts_defcon + pts_bonus;
+
+    // Build debug trace if enabled
+    const debug: DebugTrace | undefined = context?.enableDebug ? {
+      blends: {
+        xG90: { 
+          season: player.xG90_season, 
+          recent: player.xG90_recent, 
+          result: xG90, 
+          weight: formWeight 
+        },
+        xA90: { 
+          season: player.xA90_season, 
+          recent: player.xA90_recent, 
+          result: xA90, 
+          weight: formWeight 
+        },
+        keyPasses90: { 
+          season: player.keyPasses90_season, 
+          recent: player.keyPasses90_recent, 
+          result: keyPasses90 
+        },
+      },
+      lambdas: {
+        attack: lambda_att,
+        defense: lambda_def,
+      },
+      minutes: {
+        prob_start,
+        prob_60,
+        m_fac,
+        expected_minutes,
+      },
+      attack: {
+        xG_hat,
+        xA_hat,
+        goalPoints: goalPtsResult.expectedPoints,
+        assistPoints: assistPtsResult.expectedPoints,
+        involvementScore,
+        assistBoost,
+        explosiveness,
+        opp_adjustment,
+      },
+      defense: {
+        cs_pts_base: cs_pts,
+        prob_cs,
+        goals_conceded_penalty,
+        result: pts_defense,
+      },
+      defcon: {
+        cbit90,
+        cbirt90,
+        prob_defcon: defconEnabled ? pts_defcon / 2 : 0, // Convert back to probability
+        enabled: defconEnabled,
+      },
+      bonus: {
+        win_prob,
+        isKeyPlayer,
+        result: pts_bonus,
+      },
+    } : undefined;
 
     return {
       playerId: player.id,
@@ -137,6 +206,7 @@ export class PredictionEngine {
         other: 0,
       },
       raw: { xG: xG_hat, xA: xA_hat, csProb: prob_cs },
+      debug,
     };
   }
 
@@ -146,3 +216,4 @@ export class PredictionEngine {
     return a * recent + (1 - a) * season;
   }
 }
+

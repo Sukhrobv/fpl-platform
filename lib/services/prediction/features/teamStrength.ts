@@ -14,6 +14,6 @@ export function buildTeamStrengthFeatures(team: TeamInput, league: LeagueAverage
     xG_diff,
     attack_strength,
     defense_strength,
-    points_per_game: null,
+    points_per_game: team.pointsPerGame ?? null,
   };
 }

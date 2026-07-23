@@ -14,6 +14,11 @@ export class FPLPersonalService {
       if (!currentGw) {
         throw new Error("No current gameweek found");
       }
+      const season = await prisma.season.findFirst({
+        where: { isCurrent: true },
+        select: { id: true, code: true },
+      });
+      if (!season) throw new Error("No current season is configured");
 
       // 2. Ensure User exists
       // We use a placeholder email if it doesn't exist, assuming the user might update it later
@@ -38,8 +43,9 @@ export class FPLPersonalService {
       // 4. Create/Update FantasyTeam for this GW
       const fantasyTeam = await prisma.fantasyTeam.upsert({
         where: {
-          userId_gameweek: {
+          userId_seasonId_gameweek: {
             userId: user.id,
+            seasonId: season.id,
             gameweek: currentGw,
           },
         },
@@ -53,7 +59,7 @@ export class FPLPersonalService {
           totalPoints: entryHistory.total_points,
           gameweekRank: entryHistory.rank,
           overallRank: entryHistory.overall_rank,
-          
+
           // Chips
           wildcardAvailable: true, // TODO: Logic to check chip usage history
           freeHitAvailable: true,
@@ -62,6 +68,7 @@ export class FPLPersonalService {
         },
         create: {
           userId: user.id,
+          seasonId: season.id,
           gameweek: currentGw,
           teamValue: entryHistory.value,
           bank: entryHistory.bank,
@@ -82,15 +89,18 @@ export class FPLPersonalService {
 
       for (const pick of picks) {
         // Find internal player ID by FPL ID
-        const player = await prisma.player.findUnique({
-          where: { fplId: pick.element },
+        const seasonPlayer = await prisma.seasonPlayer.findUnique({
+          where: {
+            seasonId_fplId: { seasonId: season.id, fplId: pick.element },
+          },
+          select: { player: { select: { id: true } } },
         });
 
-        if (player) {
+        if (seasonPlayer) {
           await prisma.fantasyTeamPick.create({
             data: {
               fantasyTeamId: fantasyTeam.id,
-              playerId: player.id,
+              playerId: seasonPlayer.player.id,
               position: pick.position,
               isCaptain: pick.is_captain,
               isViceCaptain: pick.is_vice_captain,
@@ -115,15 +125,20 @@ export class FPLPersonalService {
    * Get the squad state for a user, optionally for a specific gameweek.
    */
   async getSquad(userId: number, gameweek?: number) {
+    const season = await prisma.season.findFirst({
+      where: { isCurrent: true },
+      select: { id: true },
+    });
+    if (!season) return null;
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
         fantasyTeams: {
-          where: gameweek ? { gameweek } : undefined,
+          where: { seasonId: season.id, ...(gameweek ? { gameweek } : {}) },
           orderBy: { gameweek: "desc" },
           take: 1,
-        }
-      }
+        },
+      },
     });
 
     if (!user || user.fantasyTeams.length === 0) {
@@ -141,19 +156,19 @@ export class FPLPersonalService {
           include: {
             team: true,
             fplStats: {
-              where: { gameweek: targetGw },
-              take: 1
-            }
-          }
-        }
+              where: { seasonId: season.id, gameweek: targetGw },
+              take: 1,
+            },
+          },
+        },
       },
-      orderBy: { position: "asc" }
+      orderBy: { position: "asc" },
     });
 
     // Reconstruct the response structure to match what the frontend expects
     return {
       ...targetTeam,
-      picks: picks
+      picks: picks,
     };
   }
 }

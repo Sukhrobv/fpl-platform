@@ -34,6 +34,8 @@
 ### `/bootstrap-static/`
 - Sections: `events`, `teams`, `elements`, `element_types`, `element_stats`, `game_settings`, `game_config`, `chips`, `phases`, `total_players`.
 - Provides season to date cumulative stats. Fields such as `points_per_game`, `selected_by_percent`, `form`, `expected_goals` arrive as strings and must be cast.
+- Canonical identity fields include `id` (season element id), `code` and `opta_code`. Store all three; do not map players by `web_name` alone.
+- Current defensive fields include `clearances_blocks_interceptions`, `tackles`, `recoveries`, `defensive_contribution` and `defensive_contribution_per_90`.
 - Update frequency: at least once per hour when matches are active; otherwise a few times per day. Polling every 30 minutes is sufficient outside live fixtures.
 
 ### `/fixtures/`
@@ -44,11 +46,22 @@
 ### `/event/{event_id}/live/`
 - Contains two keys: `elements` (per player stats) and `explain` (breakdown by fixture IDs and scoring events).
 - Values such as `expected_goals` and `ict_index` remain strings. `total_points` is numeric.
+- The 2025/26 payload also exposes CBI, tackles, recoveries and defensive contribution for every element.
 - The endpoint is the cheapest way to refresh live scores without calling `element-summary` for every player.
 
 ### `/element-summary/{element_id}/`
 - Returns `fixtures` (upcoming matches with difficulty), `history` (current season events with detailed stats), and `history_past` (previous seasons summary).
+- `history` is per fixture, not merely per gameweek, and is the canonical backfill grain for double gameweeks.
+- Defensive history fields are `clearances_blocks_interceptions`, `tackles`, `recoveries` and `defensive_contribution`.
 - Use sparingly: hitting all 700 players back to back will breach the throttle. Suggested strategy is to refresh only impacted players (e.g. ones flagged as injured or transferred) and schedule a nightly sweep with small delay between calls.
+
+### Defensive-contribution semantics (verified 2026-07-13)
+
+- Defender DC actions: `clearances_blocks_interceptions + tackles`.
+- Midfielder/forward DC actions: `clearances_blocks_interceptions + tackles + recoveries`.
+- Goalkeepers are not eligible for defensive-contribution points.
+- A GW38 reconciliation against the live endpoint matched the official `defensive_contribution` value for every outfield player with minutes.
+- Store aggregate CBI truthfully; never invent a clearances/blocks/interceptions split.
 
 ### Manager and League endpoints
 - `/entry/{entry_id}/` exposes public metadata (region, favourite club, leagues). There is no PII beyond what managers share publicly.
@@ -81,3 +94,4 @@
 - Validate rate limiting empirically once the async collector is implemented (stage 2.2) and tune concurrency backoff values.
 - Monitor pre-season payload changes (new fields, renamed stats) and update TypeScript types in `types/index.ts` accordingly.
 - Consider persisting raw JSON snapshots for `/bootstrap-static/` and `/event/{event_id}/live/` to simplify future auditing.
+- Add destructive-sync guards: reject empty/incomplete roster payloads and retain the last valid snapshot during FPL maintenance.

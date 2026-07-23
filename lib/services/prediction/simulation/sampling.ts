@@ -101,12 +101,14 @@ export function sampleDefcon(opts: {
   minutes: number;
 }): number {
   const { position, cbit90, cbirt90, minutes } = opts;
+
+  if (position === "GOALKEEPER") return 0;
   
   if (minutes < 60) return 0; // Need significant minutes
   
   const minutesFrac = minutes / 90;
-  const threshold = (position === "GOALKEEPER" || position === "DEFENDER") ? 10 : 12;
-  const rate = (position === "GOALKEEPER" || position === "DEFENDER") ? cbit90 : cbirt90;
+  const threshold = position === "DEFENDER" ? 10 : 12;
+  const rate = position === "DEFENDER" ? cbit90 : cbirt90;
   
   // Sample actual defensive actions
   const actions = samplePoisson(rate * minutesFrac);

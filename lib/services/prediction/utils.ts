@@ -30,6 +30,7 @@ export function aggregateStats(stats: any[], take: number) {
       xGA: acc.xGA + (curr.xGA || 0),
       deep: acc.deep + (curr.deep || 0),
       ppdaSum: acc.ppdaSum + (curr.ppda || 0),
+      pointsSum: acc.pointsSum + (curr.points || 0),
       count: acc.count + 1,
     }),
     {
@@ -41,6 +42,7 @@ export function aggregateStats(stats: any[], take: number) {
       xGA: 0,
       deep: 0,
       ppdaSum: 0,
+      pointsSum: 0,
       count: 0,
     }
   );

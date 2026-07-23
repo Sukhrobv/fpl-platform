@@ -5,6 +5,12 @@ import {
   buildMatchUpsertData,
   determineTargetEvents,
   extractFixtureStats,
+  inferSeason,
+  assertSeasonTransitionAllowed,
+  shouldActivateRollover,
+  validateBootstrapCoverage,
+  validateEventCoverage,
+  validateFixtureCoverage,
 } from "../lib/services/fplSync";
 import type { FPLBootstrapData, FPLLiveElementExplain } from "@/types";
 
@@ -18,6 +24,39 @@ test("determineTargetEvents defaults to current event", () => {
   const bootstrap = createBootstrap({ currentEventId: 4 });
   const events = determineTargetEvents(bootstrap);
   assert.deepEqual(events, [1, 2, 3, 4]);
+});
+
+test("inferSeason derives the season from the first event deadline", () => {
+  const bootstrap = createBootstrap({});
+  bootstrap.events[0].deadline_time = "2025-08-15T17:30:00Z";
+  assert.equal(inferSeason(bootstrap), "2025/26");
+});
+
+test("season transition is fail-closed without explicit rollover", () => {
+  assert.throws(
+    () => assertSeasonTransitionAllowed("2025/26", "2026/27"),
+    /transformation is blocked/i,
+  );
+  assert.equal(assertSeasonTransitionAllowed("2025/26", "2026/27", true), true);
+  assert.equal(assertSeasonTransitionAllowed("2025/26", "2025/26"), false);
+});
+
+test("validated rollover stays unpublished without an explicit activation flag", () => {
+  assert.equal(shouldActivateRollover(true), false);
+  assert.equal(shouldActivateRollover(true, true), true);
+  assert.equal(shouldActivateRollover(false, true), false);
+});
+
+test("validateFixtureCoverage rejects an incomplete season", () => {
+  const bootstrap = createBootstrap({});
+  const errors = validateFixtureCoverage([], bootstrap);
+  assert.ok(errors.some((error) => /expected 380 fixtures/i.test(error)));
+});
+
+test("validateBootstrapCoverage rejects a truncated roster", () => {
+  const errors = validateBootstrapCoverage(createBootstrap({}));
+  assert.ok(errors.some((error) => /expected 20 teams/i.test(error)));
+  assert.ok(errors.some((error) => /implausible player count/i.test(error)));
 });
 
 test("buildPlayerUpsertData maps FPL element to Prisma inputs", () => {
@@ -51,7 +90,10 @@ test("buildMatchUpsertData throws when team mapping missing", () => {
     team_a_difficulty: 3,
     pulse_id: 999,
   };
-  assert.throws(() => buildMatchUpsertData(fixture, new Map()), /Missing team mapping/);
+  assert.throws(
+    () => buildMatchUpsertData(fixture, new Map()),
+    /Missing team mapping/,
+  );
 });
 
 test("extractFixtureStats aggregates points and values", () => {
@@ -59,7 +101,12 @@ test("extractFixtureStats aggregates points and values", () => {
     fixture: 1,
     stats: [
       { identifier: "minutes", value: 90, points: 2, points_modification: 0 },
-      { identifier: "goals_scored", value: 1, points: 4, points_modification: 0 },
+      {
+        identifier: "goals_scored",
+        value: 1,
+        points: 4,
+        points_modification: 0,
+      },
       { identifier: "bonus", value: 3, points: 3, points_modification: 0 },
     ],
   };
@@ -94,21 +141,66 @@ test("extractFixtureStats aggregates points and values", () => {
   assert.equal(snapshot.totalPoints, 9);
 });
 
-function createBootstrap({ currentEventId = 1 }: { currentEventId?: number }): FPLBootstrapData {
-  return {
+test("validateEventCoverage rejects a truncated completed gameweek", () => {
+  assert.throws(
+    () => validateEventCoverage(8, 63, 10),
+    /incomplete.*63.*minimum 200/i,
+  );
+});
+
+test("validateEventCoverage allows an event with no finished fixtures", () => {
+  assert.doesNotThrow(() => validateEventCoverage(9, 0, 0));
+});
+
+function createBootstrap({
+  currentEventId = 1,
+}: {
+  currentEventId?: number;
+}): FPLBootstrapData {
+  const bootstrap = {
     events: [
-      { id: 1, name: "GW1", is_previous: true, is_current: currentEventId === 1, is_next: false } as any,
-      { id: 2, name: "GW2", is_previous: true, is_current: currentEventId === 2, is_next: false } as any,
-      { id: 3, name: "GW3", is_previous: true, is_current: currentEventId === 3, is_next: false } as any,
-      { id: 4, name: "GW4", is_previous: currentEventId > 4, is_current: currentEventId === 4, is_next: false } as any,
-      { id: 5, name: "GW5", is_previous: false, is_current: currentEventId === 5, is_next: currentEventId < 5 } as any,
+      {
+        id: 1,
+        name: "GW1",
+        is_previous: true,
+        is_current: currentEventId === 1,
+        is_next: false,
+      },
+      {
+        id: 2,
+        name: "GW2",
+        is_previous: true,
+        is_current: currentEventId === 2,
+        is_next: false,
+      },
+      {
+        id: 3,
+        name: "GW3",
+        is_previous: true,
+        is_current: currentEventId === 3,
+        is_next: false,
+      },
+      {
+        id: 4,
+        name: "GW4",
+        is_previous: currentEventId > 4,
+        is_current: currentEventId === 4,
+        is_next: false,
+      },
+      {
+        id: 5,
+        name: "GW5",
+        is_previous: false,
+        is_current: currentEventId === 5,
+        is_next: currentEventId < 5,
+      },
     ],
     teams: [
       {
         id: 1,
         name: "Arsenal",
         short_name: "ARS",
-      } as any,
+      },
     ],
     elements: [
       {
@@ -128,18 +220,17 @@ function createBootstrap({ currentEventId = 1 }: { currentEventId?: number }): F
         news: "",
         news_added: null,
         chance_of_playing_next_round: 100,
-      } as any,
+      },
     ],
     element_types: [
-      { id: 2, singular_name: "Defender", plural_name: "Defenders" } as any,
+      { id: 2, singular_name: "Defender", plural_name: "Defenders" },
     ],
     element_stats: [],
     chips: [],
-    game_settings: {} as any,
-    game_config: {} as any,
+    game_settings: {},
+    game_config: {},
     phases: [],
     total_players: 0,
-  } as unknown as FPLBootstrapData;
+  };
+  return bootstrap as unknown as FPLBootstrapData;
 }
-
-

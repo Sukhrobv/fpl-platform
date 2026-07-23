@@ -5,7 +5,8 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 import { 
   calculateDefconPoints, 
-  calculateExpectedDefconPoints 
+  calculateExpectedDefconPoints,
+  calculateOfficialDefconActions,
 } from "../../lib/services/prediction/points";
 import { buildDefenseFeatures } from "../../lib/services/prediction/features/defenseFeatures";
 
@@ -44,7 +45,7 @@ test("calculateDefconPoints: DEF with 9 CBIT should get 0 pts", () => {
   assert.equal(result.qualified, false);
 });
 
-test("calculateDefconPoints: GK with 10 CBIT should get 2 pts", () => {
+test("calculateDefconPoints: GK is not eligible for DEFCON points", () => {
   const result = calculateDefconPoints({
     position: "GOALKEEPER",
     clearances: 5,
@@ -54,8 +55,9 @@ test("calculateDefconPoints: GK with 10 CBIT should get 2 pts", () => {
     recoveries: 0,
   });
   
-  assert.equal(result.points, 2);
-  assert.equal(result.threshold, 10);
+  assert.equal(result.points, 0);
+  assert.equal(result.threshold, 0);
+  assert.equal(result.qualified, false);
 });
 
 test("calculateDefconPoints: MID with 12 CBIRT should get 2 pts", () => {
@@ -129,6 +131,25 @@ test("calculateExpectedDefconPoints: low CBIT DEF should have near-zero expected
   assert.ok(expected < 0.2, `Expected < 0.2, got ${expected}`);
 });
 
+test("calculateOfficialDefconActions: matches official positional formulas", () => {
+  const base = { cbi: 7, tackles: 3, recoveries: 4 };
+  assert.equal(calculateOfficialDefconActions({ position: "DEFENDER", ...base }), 10);
+  assert.equal(calculateOfficialDefconActions({ position: "MIDFIELDER", ...base }), 14);
+  assert.equal(calculateOfficialDefconActions({ position: "FORWARD", ...base }), 14);
+  assert.equal(calculateOfficialDefconActions({ position: "GOALKEEPER", ...base }), 0);
+});
+
+test("calculateExpectedDefconPoints: GK always returns zero", () => {
+  const expected = calculateExpectedDefconPoints({
+    position: "GOALKEEPER",
+    cbit90: 30,
+    cbirt90: 40,
+    prob_60: 1,
+  });
+
+  assert.equal(expected, 0);
+});
+
 // ============================================================================
 // Defense Features Tests
 // ============================================================================
@@ -142,6 +163,19 @@ test("buildDefenseFeatures: should calculate per-90 stats", () => {
   assert.ok(features.cbit90 > 0, "Should have CBIT per 90");
   assert.ok(features.cbirt90 > features.cbit90, "CBIRT should include recoveries");
   assert.ok(features.prob_defcon >= 0 && features.prob_defcon <= 1, "Prob should be 0-1");
+});
+
+test("buildDefenseFeatures: official FPL CBI stays aggregated", () => {
+  const features = buildDefenseFeatures([
+    { cbi: 8, tackles: 2, recoveries: 4 },
+  ], 90);
+
+  assert.equal(features.cbi90, 8);
+  assert.equal(features.clearances90, 0);
+  assert.equal(features.blocks90, 0);
+  assert.equal(features.interceptions90, 0);
+  assert.equal(features.cbit90, 10);
+  assert.equal(features.cbirt90, 14);
 });
 
 test("buildDefenseFeatures: empty matches should return zeros", () => {

@@ -4,7 +4,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callLlm, LlmMessage } from "@/lib/llm/client";
 import { SYSTEM_PROMPT } from "@/lib/llm/prompts/systemPrompt";
-import { getToolDefinitionsForLlm, executeTool } from "@/lib/llm/tools/definitions";
+import {
+  getToolDefinitionsForLlm,
+  executeTool,
+} from "@/lib/llm/tools/definitions";
 import { LLM_CONFIG } from "@/lib/llm/config";
 
 // ==========================================
@@ -19,11 +22,13 @@ interface ChatMessage {
 interface ChatRequest {
   messages: ChatMessage[];
   userId?: string;
+  language?: "auto" | "en" | "ru";
 }
 
 interface ChatResponse {
   message: string;
   toolsUsed: string[];
+  evidence: { tool: string; result: unknown }[];
 }
 
 // ==========================================
@@ -33,18 +38,25 @@ interface ChatResponse {
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as ChatRequest;
-    const { messages } = body;
+    const { messages, language = "auto" } = body;
 
     if (!messages || messages.length === 0) {
       return NextResponse.json(
         { error: "Messages are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Формируем контекст для LLM
     const llmMessages: LlmMessage[] = [
       { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "system",
+        content:
+          language === "auto"
+            ? "Answer in the language used by the user."
+            : `Answer in ${language === "ru" ? "Russian" : "English"}.`,
+      },
       ...messages.slice(-LLM_CONFIG.maxMessagesHistory).map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
@@ -52,6 +64,7 @@ export async function POST(req: NextRequest) {
     ];
 
     const toolsUsed: string[] = [];
+    const evidence: { tool: string; result: unknown }[] = [];
 
     // Первый вызов LLM
     let result = await callLlm(llmMessages, {
@@ -76,10 +89,14 @@ export async function POST(req: NextRequest) {
 
       // Выполняем все tool calls
       for (const toolCall of result.toolCalls) {
-        console.log(`[Chat API] Executing tool: ${toolCall.name}`, toolCall.arguments);
+        console.log(
+          `[Chat API] Executing tool: ${toolCall.name}`,
+          toolCall.arguments,
+        );
         toolsUsed.push(toolCall.name);
 
         const toolResult = await executeTool(toolCall.name, toolCall.arguments);
+        evidence.push({ tool: toolCall.name, result: toolResult });
 
         llmMessages.push({
           role: "tool",
@@ -100,6 +117,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       message: result.message || "Не удалось получить ответ",
       toolsUsed: [...new Set(toolsUsed)], // Уникальные tools
+      evidence,
     } satisfies ChatResponse);
   } catch (error) {
     console.error("[Chat API] Error:", error);
@@ -111,20 +129,17 @@ export async function POST(req: NextRequest) {
     if (errorMessage.includes("API_KEY")) {
       return NextResponse.json(
         { error: "LLM API key not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     if (errorMessage.includes("timeout")) {
-      return NextResponse.json(
-        { error: "Request timed out" },
-        { status: 504 }
-      );
+      return NextResponse.json({ error: "Request timed out" }, { status: 504 });
     }
 
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

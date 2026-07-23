@@ -77,6 +77,8 @@ export interface FPLElement {
   chance_of_playing_next_round: number | null;
   chance_of_playing_this_round: number | null;
   code: number;
+  opta_code?: string | null;
+  has_temporary_code?: boolean;
   cost_change_event: number;
   cost_change_event_fall: number;
   cost_change_start: number;
@@ -132,6 +134,11 @@ export interface FPLElement {
   expected_assists: string;
   expected_goal_involvements: string;
   expected_goals_conceded: string;
+  clearances_blocks_interceptions?: number;
+  tackles?: number;
+  recoveries?: number;
+  defensive_contribution?: number | string;
+  defensive_contribution_per_90?: number | string;
 }
 
 export interface FPLElementType {
@@ -284,6 +291,10 @@ export interface FPLPlayerLiveStats {
   expected_goal_involvements: string;
   expected_goals_conceded: string;
   total_points: number;
+  clearances_blocks_interceptions?: number;
+  tackles?: number;
+  recoveries?: number;
+  defensive_contribution?: number | string;
 }
 
 export interface FPLLiveElementExplainStat {
@@ -355,6 +366,10 @@ export interface FPLPlayerHistoryEntry {
   expected_assists: string;
   expected_goal_involvements: string;
   expected_goals_conceded: string;
+  clearances_blocks_interceptions?: number;
+  tackles?: number;
+  recoveries?: number;
+  defensive_contribution?: number | string;
   value: number;
   transfers_balance: number;
   selected: number;
@@ -390,6 +405,11 @@ export interface FPLPlayerSeasonSummary {
   expected_assists: string;
   expected_goal_involvements: string;
   expected_goals_conceded: string;
+  clearances_blocks_interceptions?: number;
+  tackles?: number;
+  recoveries?: number;
+  defensive_contribution?: number | string;
+  defensive_contribution_per_90?: number | string;
 }
 
 export interface FPLPlayerSummary {

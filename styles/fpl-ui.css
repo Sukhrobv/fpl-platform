@@ -1,0 +1,121 @@
+/* Canonical product-owned UI tokens. */
+:root,
+.fpl-ui {
+  color-scheme: light;
+
+  --background: oklch(0.973 0.012 83);
+  --foreground: oklch(0.205 0.014 42);
+  --card: oklch(0.992 0.006 83);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.995 0.004 83);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.405 0.12 24);
+  --primary-foreground: oklch(0.985 0.008 83);
+  --secondary: oklch(0.925 0.018 78);
+  --secondary-foreground: oklch(0.26 0.02 42);
+  --muted: oklch(0.941 0.012 78);
+  --muted-foreground: oklch(0.48 0.018 48);
+  --accent: oklch(0.79 0.135 76);
+  --accent-foreground: oklch(0.235 0.03 53);
+  --destructive: oklch(0.55 0.19 28);
+  --border: oklch(0.84 0.018 72);
+  --input: oklch(0.84 0.018 72);
+  --ring: oklch(0.52 0.105 24);
+  --chart-1: oklch(0.405 0.12 24);
+  --chart-2: oklch(0.67 0.125 76);
+  --chart-3: oklch(0.47 0.12 323);
+  --chart-4: oklch(0.5 0.1 128);
+  --chart-5: oklch(0.56 0.17 30);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  --fact: oklch(0.34 0.025 45);
+  --forecast: oklch(0.47 0.12 323);
+  --uncertainty: oklch(0.67 0.125 76);
+  --risk: oklch(0.56 0.17 30);
+  --positive-delta: oklch(0.5 0.1 128);
+  --negative-delta: oklch(0.56 0.17 30);
+  --fresh: oklch(0.5 0.1 128);
+  --stale: oklch(0.62 0.11 76);
+
+  --radius: 0.25rem;
+  --fpl-row-height: 2.75rem;
+  --fpl-control-height: 2.25rem;
+  --fpl-motion-fast: 120ms;
+  --fpl-motion-standard: 180ms;
+}
+
+.dark,
+.dark .fpl-ui,
+.fpl-ui[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: oklch(0.18 0.012 42);
+  --foreground: oklch(0.93 0.012 78);
+  --card: oklch(0.215 0.014 42);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.225 0.016 42);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.69 0.145 25);
+  --primary-foreground: oklch(0.16 0.018 42);
+  --secondary: oklch(0.27 0.018 42);
+  --secondary-foreground: oklch(0.91 0.012 78);
+  --muted: oklch(0.25 0.014 42);
+  --muted-foreground: oklch(0.68 0.018 70);
+  --accent: oklch(0.76 0.14 76);
+  --accent-foreground: oklch(0.18 0.02 48);
+  --destructive: oklch(0.68 0.18 28);
+  --border: oklch(0.34 0.018 48);
+  --input: oklch(0.34 0.018 48);
+  --ring: oklch(0.69 0.145 25);
+  --chart-1: oklch(0.69 0.145 25);
+  --chart-2: oklch(0.76 0.14 76);
+  --chart-3: oklch(0.72 0.12 323);
+  --chart-4: oklch(0.7 0.105 128);
+  --chart-5: oklch(0.7 0.17 30);
+
+  --fact: oklch(0.82 0.018 78);
+  --forecast: oklch(0.72 0.12 323);
+  --uncertainty: oklch(0.76 0.14 76);
+  --risk: oklch(0.7 0.17 30);
+  --positive-delta: oklch(0.7 0.105 128);
+  --negative-delta: oklch(0.7 0.17 30);
+  --fresh: oklch(0.7 0.105 128);
+  --stale: oklch(0.76 0.14 76);
+}
+
+.fpl-ui {
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.fpl-ui[data-density="compact"] {
+  --fpl-row-height: 2.25rem;
+  --fpl-control-height: 2rem;
+}
+
+.fpl-ui[data-density="comfortable"] {
+  --fpl-row-height: 3.25rem;
+  --fpl-control-height: 2.5rem;
+}
+
+.fpl-data {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings:
+    "tnum" 1,
+    "lnum" 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fpl-ui {
+    --fpl-motion-fast: 0ms;
+    --fpl-motion-standard: 0ms;
+  }
+}

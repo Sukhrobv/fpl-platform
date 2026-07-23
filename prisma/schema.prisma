@@ -7,9 +7,117 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Season {
+  id                  Int                       @id @default(autoincrement())
+  code                String                    @unique
+  startYear           Int
+  endYear             Int
+  status              SeasonStatus              @default(UPCOMING)
+  isCurrent           Boolean                   @default(false)
+  startedAt           DateTime?
+  endedAt             DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  teams               SeasonTeam[]
+  players             SeasonPlayer[]
+  matches             Match[]
+  fplStats            FPLPlayerStats[]
+  externalPlayerStats ExternalPlayerStats[]
+  externalTeamStats   ExternalTeamStats[]
+  fantasyTeams        FantasyTeam[]
+  syncLogs            SyncLog[]
+  sourceSnapshots     SourceSnapshot[]
+  predictionVersions  PredictionConfigVersion[]
+  evidenceFreezes     SeasonEvidenceFreeze[]
+  playerPriors        PlayerSeasonPrior[]
+  sourceBindings      SeasonSourceBinding[]
+
+  @@index([status])
+  @@map("seasons")
+}
+
+model SeasonTeam {
+  id            Int                 @id @default(autoincrement())
+  seasonId      Int
+  teamId        Int
+  fplId         Int
+  name          String
+  shortName     String
+  active        Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  season        Season              @relation(fields: [seasonId], references: [id])
+  team          Team                @relation(fields: [teamId], references: [id])
+  players       SeasonPlayer[]
+  homeMatches   Match[]             @relation("HomeSeasonTeam")
+  awayMatches   Match[]             @relation("AwaySeasonTeam")
+  externalStats ExternalTeamStats[]
+
+  @@unique([seasonId, fplId])
+  @@unique([seasonId, teamId])
+  @@index([seasonId, active])
+  @@map("season_teams")
+}
+
+model SeasonPlayer {
+  id              Int                   @id @default(autoincrement())
+  seasonId        Int
+  playerId        Int
+  seasonTeamId    Int
+  fplId           Int
+  position        Position
+  squadNumber     Int?
+  nowCost         Int
+  selectedBy      Float
+  totalPoints     Int
+  pointsPerGame   Float
+  form            Float
+  status          String?
+  news            String?
+  newsAdded       DateTime?
+  chanceOfPlaying Int?
+  active          Boolean               @default(true)
+  firstSeenAt     DateTime              @default(now())
+  lastSeenAt      DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  season          Season                @relation(fields: [seasonId], references: [id])
+  player          Player                @relation(fields: [playerId], references: [id])
+  seasonTeam      SeasonTeam            @relation(fields: [seasonTeamId], references: [id])
+  fplStats        FPLPlayerStats[]
+  externalStats   ExternalPlayerStats[]
+  mappings        SeasonPlayerMapping[]
+  priors          PlayerSeasonPrior[]
+
+  @@unique([seasonId, fplId])
+  @@unique([seasonId, playerId])
+  @@index([seasonTeamId])
+  @@index([seasonId, active])
+  @@map("season_players")
+}
+
+model SeasonPlayerMapping {
+  id             Int           @id @default(autoincrement())
+  seasonPlayerId Int
+  source         String
+  externalId     String
+  method         MappingMethod
+  status         MappingStatus @default(PENDING)
+  confidence     Float         @default(0)
+  mappedBy       String?
+  mappedAt       DateTime      @default(now())
+  verifiedAt     DateTime?
+  notes          String?
+  seasonPlayer   SeasonPlayer  @relation(fields: [seasonPlayerId], references: [id])
+
+  @@unique([seasonPlayerId, source])
+  @@index([source, externalId])
+  @@map("season_player_mappings")
+}
+
 model Team {
   id             Int                 @id @default(autoincrement())
-  fplId          Int                 @unique
+  fplId          Int
   name           String
   shortName      String
   sofascoreId    Int?                @unique
@@ -25,6 +133,7 @@ model Team {
   awayMatches    Match[]             @relation("AwayTeam")
   homeMatches    Match[]             @relation("HomeTeam")
   players        Player[]
+  seasonTeams    SeasonTeam[]
 
   @@index([fplId])
   @@index([sofascoreId])
@@ -33,7 +142,7 @@ model Team {
 
 model Player {
   id              Int                   @id @default(autoincrement())
-  fplId           Int                   @unique
+  fplId           Int
   code            Int                   @unique
   webName         String
   firstName       String
@@ -50,6 +159,10 @@ model Player {
   news            String?
   newsAdded       DateTime?
   chanceOfPlaying Int?
+  season          String                @default("2025/26")
+  active          Boolean               @default(true)
+  firstSeenAt     DateTime              @default(now())
+  lastSeenAt      DateTime?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   lastSyncedAt    DateTime?
@@ -57,12 +170,15 @@ model Player {
   fantasyPicks    FantasyTeamPick[]
   fplStats        FPLPlayerStats[]
   playerMappings  PlayerMapping[]
+  seasonPlayers   SeasonPlayer[]
   team            Team                  @relation(fields: [teamId], references: [id])
   watchlist       Watchlist[]
+  seasonPriors    PlayerSeasonPrior[]
 
   @@index([fplId])
   @@index([teamId])
   @@index([position])
+  @@index([season, active])
   @@map("players")
 }
 
@@ -86,99 +202,129 @@ model PlayerMapping {
 }
 
 model Match {
-  id          Int              @id @default(autoincrement())
-  fplId       Int              @unique
-  gameweek    Int
-  homeTeamId  Int
-  awayTeamId  Int
-  kickoffTime DateTime
-  homeScore   Int?
-  awayScore   Int?
-  finished    Boolean          @default(false)
-  started     Boolean          @default(false)
-  sofascoreId Int?             @unique
-  understatId String?          @unique
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  playerStats FPLPlayerStats[]
-  awayTeam    Team             @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  homeTeam    Team             @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  id               Int              @id @default(autoincrement())
+  seasonId         Int
+  fplId            Int
+  gameweek         Int
+  homeTeamId       Int
+  awayTeamId       Int
+  homeSeasonTeamId Int
+  awaySeasonTeamId Int
+  kickoffTime      DateTime
+  homeScore        Int?
+  awayScore        Int?
+  finished         Boolean          @default(false)
+  started          Boolean          @default(false)
+  sofascoreId      Int?             @unique
+  understatId      String?          @unique
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  playerStats      FPLPlayerStats[]
+  season           Season           @relation(fields: [seasonId], references: [id])
+  homeSeasonTeam   SeasonTeam       @relation("HomeSeasonTeam", fields: [homeSeasonTeamId], references: [id])
+  awaySeasonTeam   SeasonTeam       @relation("AwaySeasonTeam", fields: [awaySeasonTeamId], references: [id])
+  awayTeam         Team             @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  homeTeam         Team             @relation("HomeTeam", fields: [homeTeamId], references: [id])
 
+  @@unique([seasonId, fplId])
   @@index([gameweek])
   @@index([kickoffTime])
+  @@index([seasonId, gameweek])
   @@map("matches")
 }
 
 model FPLPlayerStats {
-  id              Int      @id @default(autoincrement())
-  playerId        Int
-  matchId         Int
-  gameweek        Int
-  minutes         Int
-  goals           Int      @default(0)
-  assists         Int      @default(0)
-  cleanSheets     Int      @default(0)
-  goalsConceded   Int      @default(0)
-  ownGoals        Int      @default(0)
-  penaltiesSaved  Int      @default(0)
-  penaltiesMissed Int      @default(0)
-  yellowCards     Int      @default(0)
-  redCards        Int      @default(0)
-  saves           Int      @default(0)
-  bonus           Int      @default(0)
-  bps             Int      @default(0)
-  totalPoints     Int
-  influence       Float
-  creativity      Float
-  threat          Float
-  ictIndex        Float
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  match           Match    @relation(fields: [matchId], references: [id])
-  player          Player   @relation(fields: [playerId], references: [id])
+  id                    Int          @id @default(autoincrement())
+  seasonId              Int
+  seasonPlayerId        Int
+  playerId              Int
+  matchId               Int
+  gameweek              Int
+  minutes               Int
+  goals                 Int          @default(0)
+  assists               Int          @default(0)
+  cleanSheets           Int          @default(0)
+  goalsConceded         Int          @default(0)
+  ownGoals              Int          @default(0)
+  penaltiesSaved        Int          @default(0)
+  penaltiesMissed       Int          @default(0)
+  yellowCards           Int          @default(0)
+  redCards              Int          @default(0)
+  saves                 Int          @default(0)
+  bonus                 Int          @default(0)
+  bps                   Int          @default(0)
+  cbi                   Int?
+  tackles               Int?
+  recoveries            Int?
+  defensiveContribution Int?
+  totalPoints           Int
+  influence             Float
+  creativity            Float
+  threat                Float
+  ictIndex              Float
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  match                 Match        @relation(fields: [matchId], references: [id])
+  player                Player       @relation(fields: [playerId], references: [id])
+  season                Season       @relation(fields: [seasonId], references: [id])
+  seasonPlayer          SeasonPlayer @relation(fields: [seasonPlayerId], references: [id])
 
-  @@unique([playerId, matchId])
+  @@unique([seasonPlayerId, matchId])
+  @@index([seasonId, gameweek])
   @@index([gameweek])
   @@map("fpl_player_stats")
 }
 
 model ExternalPlayerStats {
-  id            Int      @id @default(autoincrement())
-  playerId      Int
-  gameweek      Int
-  source        String
-  minutes       Int?
-  goals         Int?
-  assists       Int?
-  shots         Int?
-  shotsOnTarget Int?
-  keyPasses     Int?
-  xG            Float?
-  xA            Float?
-  xGChain       Float?
-  xGBuildup     Float?
-  rating        Float?
-  touches       Int?
-  passAccuracy  Float?
-  dribbles      Int?
-  aerialDuels   Int?
-  rawData       Json?
-  matchDate     DateTime
-  homeTeam      String
-  awayTeam      String
-  wasHome       Boolean
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  player        Player   @relation(fields: [playerId], references: [id])
+  id             Int          @id @default(autoincrement())
+  seasonId       Int
+  seasonPlayerId Int
+  playerId       Int
+  gameweek       Int
+  source         String
+  minutes        Int?
+  goals          Int?
+  assists        Int?
+  shots          Int?
+  shotsOnTarget  Int?
+  keyPasses      Int?
+  xG             Float?
+  xA             Float?
+  xGChain        Float?
+  xGBuildup      Float?
+  rating         Float?
+  touches        Int?
+  passAccuracy   Float?
+  dribbles       Int?
+  aerialDuels    Int?
+  // DEFCON defensive stats
+  clearances     Int?
+  blocks         Int?
+  interceptions  Int?
+  tackles        Int?
+  recoveries     Int?
+  rawData        Json?
+  matchDate      DateTime
+  homeTeam       String
+  awayTeam       String
+  wasHome        Boolean
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  player         Player       @relation(fields: [playerId], references: [id])
+  season         Season       @relation(fields: [seasonId], references: [id])
+  seasonPlayer   SeasonPlayer @relation(fields: [seasonPlayerId], references: [id])
 
-  @@unique([playerId, gameweek, source])
+  @@unique([seasonPlayerId, gameweek, source])
+  @@index([seasonId, gameweek])
   @@index([gameweek])
   @@index([source])
   @@map("external_player_stats")
 }
 
 model ExternalTeamStats {
-  id            Int      @id @default(autoincrement())
+  id            Int        @id @default(autoincrement())
+  seasonId      Int
+  seasonTeamId  Int
   teamId        Int
   gameweek      Int
   source        String
@@ -198,11 +344,14 @@ model ExternalTeamStats {
   xpts          Float
   result        String
   points        Int
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  team          Team     @relation(fields: [teamId], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  team          Team       @relation(fields: [teamId], references: [id])
+  season        Season     @relation(fields: [seasonId], references: [id])
+  seasonTeam    SeasonTeam @relation(fields: [seasonTeamId], references: [id])
 
-  @@unique([teamId, matchDate, source])
+  @@unique([seasonTeamId, matchDate, source])
+  @@index([seasonId])
   @@index([teamId])
   @@index([source])
   @@map("external_team_stats")
@@ -225,6 +374,7 @@ model User {
 
 model FantasyTeam {
   id                     Int               @id @default(autoincrement())
+  seasonId               Int
   userId                 Int
   gameweek               Int
   teamValue              Int
@@ -245,8 +395,10 @@ model FantasyTeam {
   wildcardAvailable      Boolean           @default(true)
   picks                  FantasyTeamPick[]
   user                   User              @relation(fields: [userId], references: [id])
+  season                 Season            @relation(fields: [seasonId], references: [id])
 
-  @@unique([userId, gameweek])
+  @@unique([userId, seasonId, gameweek])
+  @@index([seasonId, gameweek])
   @@index([gameweek])
   @@map("fantasy_teams")
 }
@@ -284,6 +436,7 @@ model Watchlist {
 
 model SyncLog {
   id             Int       @id @default(autoincrement())
+  seasonId       Int?
   source         String
   syncType       String
   gameweek       Int?
@@ -294,9 +447,11 @@ model SyncLog {
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
   duration       Int?
+  season         Season?   @relation(fields: [seasonId], references: [id])
 
   @@index([source, syncType])
   @@index([startedAt])
+  @@index([seasonId, startedAt])
   @@map("sync_logs")
 }
 
@@ -311,11 +466,160 @@ model AppConfig {
   @@map("app_config")
 }
 
+model SourceSnapshot {
+  id             Int      @id @default(autoincrement())
+  seasonId       Int?
+  source         String
+  dataset        String
+  season         String
+  sourceSeasonId String
+  gameweek       Int?
+  batchId        String
+  schemaVersion  Int      @default(1)
+  fetchedAt      DateTime
+  checksum       String
+  valid          Boolean
+  error          String?
+  recordCount    Int
+  payload        Json
+  createdAt      DateTime @default(now())
+  seasonRef      Season?  @relation(fields: [seasonId], references: [id])
+
+  @@unique([batchId, dataset])
+  @@index([source, dataset, season, fetchedAt])
+  @@index([source, season, gameweek])
+  @@index([batchId])
+  @@index([seasonId, source, dataset])
+  @@map("source_snapshots")
+}
+
+model SeasonSourceBinding {
+  id               Int      @id @default(autoincrement())
+  seasonId         Int
+  source           String
+  externalSeasonId String
+  label            String
+  metadata         Json?
+  verifiedAt       DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  season           Season   @relation(fields: [seasonId], references: [id])
+
+  @@unique([seasonId, source])
+  @@unique([source, externalSeasonId])
+  @@index([source, verifiedAt])
+  @@map("season_source_bindings")
+}
+
+model PredictionConfigVersion {
+  id                Int                    @id @default(autoincrement())
+  version           String                 @unique
+  sourceSeasonId    Int
+  config            Json
+  calibrationStatus CalibrationStatus      @default(NOT_RUN)
+  calibrationResult Json?
+  backtestResult    Json?
+  notes             String?
+  frozenAt          DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  sourceSeason      Season                 @relation(fields: [sourceSeasonId], references: [id])
+  priors            PlayerSeasonPrior[]
+  evidenceFreezes   SeasonEvidenceFreeze[]
+
+  @@index([sourceSeasonId, createdAt])
+  @@map("prediction_config_versions")
+}
+
+model SeasonEvidenceFreeze {
+  id               Int                     @id @default(autoincrement())
+  seasonId         Int
+  configVersionId  Int
+  version          String
+  status           EvidenceFreezeStatus    @default(FROZEN)
+  snapshotManifest Json
+  derivedManifest  Json
+  qualityReport    Json
+  checksum         String
+  frozenAt         DateTime                @default(now())
+  createdAt        DateTime                @default(now())
+  season           Season                  @relation(fields: [seasonId], references: [id])
+  configVersion    PredictionConfigVersion @relation(fields: [configVersionId], references: [id])
+
+  @@unique([seasonId, version])
+  @@index([configVersionId])
+  @@map("season_evidence_freezes")
+}
+
+model PlayerSeasonPrior {
+  id                   Int                     @id @default(autoincrement())
+  sourceSeasonId       Int
+  sourceSeasonPlayerId Int
+  playerId             Int
+  configVersionId      Int
+  targetSeasonCode     String
+  sourcePosition       Position
+  minutes              Int
+  appearances          Int
+  starts               Int?
+  rawXG90              Float?
+  rawXA90              Float?
+  rawTouches90         Float?
+  rawKeyPasses90       Float?
+  rawCarries90         Float?
+  rawDefconActions90   Float?
+  xG90                 Float?
+  xA90                 Float?
+  touches90            Float?
+  keyPasses90          Float?
+  carries90            Float?
+  defconActions90      Float?
+  sampleWeight         Float
+  confidenceScore      Float
+  confidence           PriorConfidence
+  uncertaintyReasons   Json
+  evidence             Json
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  sourceSeason         Season                  @relation(fields: [sourceSeasonId], references: [id])
+  sourceSeasonPlayer   SeasonPlayer            @relation(fields: [sourceSeasonPlayerId], references: [id])
+  player               Player                  @relation(fields: [playerId], references: [id])
+  configVersion        PredictionConfigVersion @relation(fields: [configVersionId], references: [id])
+
+  @@unique([sourceSeasonId, playerId, configVersionId, targetSeasonCode])
+  @@index([targetSeasonCode, confidence])
+  @@index([sourcePosition])
+  @@map("player_season_priors")
+}
+
 enum Position {
   GOALKEEPER
   DEFENDER
   MIDFIELDER
   FORWARD
+}
+
+enum SeasonStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETE
+}
+
+enum CalibrationStatus {
+  NOT_RUN
+  PASSED
+  FAILED
+}
+
+enum EvidenceFreezeStatus {
+  FROZEN
+  SUPERSEDED
+}
+
+enum PriorConfidence {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 enum MappingMethod {

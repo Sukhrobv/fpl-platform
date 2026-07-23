@@ -154,8 +154,9 @@ export function calculateSmartBonus(opts: {
 
 /**
  * FPL 2025/26 Defensive Contributions Rules:
- * - DEF/GK: 10 CBIT (Clearances, Blocks, Interceptions, Tackles) = 2 pts
+ * - DEF: 10 CBIT (Clearances, Blocks, Interceptions, Tackles) = 2 pts
  * - MID/FWD: 12 CBIRT (CBIT + Recoveries) = 2 pts
+ * - GK: not eligible
  * - Maximum: 2 pts per match (capped)
  */
 
@@ -171,8 +172,22 @@ export interface DefconInput {
 export interface DefconResult {
   points: number;        // 0 or 2
   totalActions: number;  // CBIT or CBIRT
-  threshold: number;     // 10 for DEF, 12 for MID/FWD
+  threshold: number;     // 0 for GK, 10 for DEF, 12 for MID/FWD
   qualified: boolean;
+}
+
+export interface OfficialDefconActionsInput {
+  position: Position;
+  cbi: number;
+  tackles: number;
+  recoveries: number;
+}
+
+/** Calculate the official FPL defensive-action total without inventing a CBI split. */
+export function calculateOfficialDefconActions(input: OfficialDefconActionsInput): number {
+  if (input.position === "GOALKEEPER") return 0;
+  const cbit = input.cbi + input.tackles;
+  return input.position === "DEFENDER" ? cbit : cbit + input.recoveries;
 }
 
 /**
@@ -182,9 +197,13 @@ export function calculateDefconPoints(input: DefconInput): DefconResult {
   const { position, clearances, blocks, interceptions, tackles, recoveries } = input;
   
   const cbit = clearances + blocks + interceptions + tackles;
+
+  if (position === "GOALKEEPER") {
+    return { points: 0, totalActions: 0, threshold: 0, qualified: false };
+  }
   
-  // DEF/GK: only CBIT counts, threshold = 10
-  if (position === "DEFENDER" || position === "GOALKEEPER") {
+  // DEF: only CBIT counts, threshold = 10
+  if (position === "DEFENDER") {
     const qualified = cbit >= 10;
     return {
       points: qualified ? 2 : 0,
@@ -216,10 +235,12 @@ export function calculateExpectedDefconPoints(opts: {
   prob_60: number;    // Probability of playing 60+ minutes
 }): number {
   const { position, cbit90, cbirt90, prob_60 } = opts;
+
+  if (position === "GOALKEEPER") return 0;
   
   // Threshold and lambda based on position
-  const threshold = (position === "DEFENDER" || position === "GOALKEEPER") ? 10 : 12;
-  const lambda = (position === "DEFENDER" || position === "GOALKEEPER") ? cbit90 : cbirt90;
+  const threshold = position === "DEFENDER" ? 10 : 12;
+  const lambda = position === "DEFENDER" ? cbit90 : cbirt90;
   
   // Probability of reaching threshold (Poisson CDF complement)
   const prob_defcon = 1 - poissonCdf(lambda, threshold - 1);

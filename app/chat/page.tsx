@@ -1,99 +1,108 @@
 "use client";
 
-// app/chat/page.tsx
-// AI Chat interface for FPL Assistant
-
-import { useState, useRef, useEffect, FormEvent } from "react";
-
-// ==========================================
-// TYPES
-// ==========================================
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  ArrowUp,
+  Bot,
+  CircleAlert,
+  LoaderCircle,
+  Sparkles,
+} from "lucide-react";
+import { useFplSettings } from "@/contexts/FplSettingsContext";
+import { StructuredAssistantMessage } from "@/components/assistant/StructuredAssistantMessage";
+import type { AssistantEvidenceItem } from "@/components/assistant/model";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  toolsUsed?: string[];
+  evidence?: AssistantEvidenceItem[];
   isLoading?: boolean;
+  error?: boolean;
 }
 
-// ==========================================
-// COMPONENT
-// ==========================================
+const suggestions = [
+  "Compare two midfielders using stored facts",
+  "Which players are currently flagged?",
+  "Show affordable forward candidates",
+  "What data is still missing for GW1?",
+];
 
 export default function ChatPage() {
+  const { assistantLanguage } = useFplSettings();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll на новые сообщения
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const question = input.trim();
+    if (!question || isLoading) return;
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: input.trim(),
+      content: question,
     };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-
-    // Placeholder для ответа
+    const history = [...messages, userMessage];
     const assistantId = `assistant-${Date.now()}`;
-    setMessages((prev) => [
-      ...prev,
+    setMessages([
+      ...history,
       { id: assistantId, role: "assistant", content: "", isLoading: true },
     ]);
+    setInput("");
+    setIsLoading(true);
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          language: assistantLanguage,
+          messages: history.map(({ role, content }) => ({ role, content })),
         }),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to get response");
-      }
-
-      const data = await response.json();
-
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
+      const body = (await response.json()) as {
+        message?: string;
+        evidence?: AssistantEvidenceItem[];
+        error?: string;
+      };
+      if (!response.ok)
+        throw new Error(body.error ?? "Assistant request failed");
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId
             ? {
-                ...m,
-                content: data.message,
-                toolsUsed: data.toolsUsed,
+                ...message,
+                content: body.message ?? "No answer was returned.",
+                evidence: body.evidence ?? [],
                 isLoading: false,
               }
-            : m
-        )
+            : message,
+        ),
       );
-    } catch {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
+    } catch (error) {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId
             ? {
-                ...m,
-                content: "Произошла ошибка. Убедитесь, что GROQ_API_KEY добавлен в .env",
+                ...message,
+                content:
+                  error instanceof Error
+                    ? error.message
+                    : "Assistant unavailable",
+                error: true,
                 isLoading: false,
               }
-            : m
-        )
+            : message,
+        ),
       );
     } finally {
       setIsLoading(false);
@@ -101,123 +110,138 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <h1 className="text-lg font-semibold text-white">AI Chat</h1>
-          <p className="text-sm text-slate-400">Спросите о любом игроке или стратегии</p>
+    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-6xl flex-col px-4 sm:px-6">
+      <header className="grid gap-5 border-b border-border py-7 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="max-w-2xl">
+          <p className="text-[10px] font-black tracking-[0.16em] text-forecast uppercase">
+            Evidence assistant
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">
+            Ask, then inspect the evidence
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Answers separate the assistant’s interpretation from stored facts
+            and unavailable forecasts.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 border border-uncertainty/40 bg-uncertainty/5 px-3 py-2 text-[10px] font-bold text-uncertainty">
+          <CircleAlert className="size-3.5" aria-hidden="true" />
+          2026/27 forecasts pending
         </div>
       </header>
 
-      {/* Messages */}
-      <main className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <main className="flex-1 py-6">
+        <div className="space-y-5">
           {messages.length === 0 && (
-            <div className="text-center py-16">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 mx-auto mb-6 flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
+            <section className="grid min-h-[26rem] place-items-center border border-border bg-card px-5 py-10 text-center">
+              <div className="max-w-2xl">
+                <span className="mx-auto grid size-12 place-items-center border border-foreground bg-foreground text-background">
+                  <Bot className="size-5" aria-hidden="true" />
+                </span>
+                <h2 className="mt-5 text-xl font-black">
+                  Start with a decision, not a prompt trick
+                </h2>
+                <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
+                  Ask about a player, a shortlist or the evidence needed for a
+                  transfer. The assistant will show which internal lookups
+                  informed its answer.
+                </p>
+                <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setInput(suggestion)}
+                      className="border border-border bg-background px-3 py-3 text-left text-xs font-bold transition-colors hover:border-foreground/40 hover:bg-muted"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <h2 className="text-xl font-semibold text-white mb-2">Привет! 👋</h2>
-              <p className="text-slate-400 mb-8 max-w-md mx-auto">
-                Я твой AI-ассистент для FPL. Спроси меня о любом игроке, сравни кандидатов или найди дифференциалов.
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {[
-                  "Расскажи о Салахе",
-                  "Сравни Фодена и Сака",
-                  "Кого взять до 8м?",
-                  "Топ дифференциалы",
-                ].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    onClick={() => setInput(suggestion)}
-                    className="px-4 py-2 rounded-full bg-slate-800/50 text-slate-300 text-sm hover:bg-slate-700/50 transition-colors border border-slate-700"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
+            </section>
           )}
 
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                  message.role === "user"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-800 text-slate-100 border border-slate-700"
-                }`}
-              >
-                {message.isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1">
-                      <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "300ms" }} />
-                    </div>
-                    <span className="text-sm text-slate-400">Думаю...</span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="whitespace-pre-wrap">{message.content}</div>
-                    {message.toolsUsed && message.toolsUsed.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-slate-700 flex flex-wrap gap-1">
-                        {message.toolsUsed.map((tool) => (
-                          <span
-                            key={tool}
-                            className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-400"
-                          >
-                            {tool}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
+          {messages.map((message) =>
+            message.role === "user" ? (
+              <div key={message.id} className="flex justify-end">
+                <div className="max-w-[85%] border border-primary bg-primary px-4 py-3 text-sm leading-6 text-primary-foreground">
+                  {message.content}
+                </div>
               </div>
-            </div>
-          ))}
+            ) : message.isLoading ? (
+              <div
+                key={message.id}
+                className="flex items-center gap-2 border border-border bg-card px-4 py-4 text-xs text-muted-foreground"
+                role="status"
+              >
+                <LoaderCircle
+                  className="size-4 animate-spin motion-reduce:animate-none"
+                  aria-hidden="true"
+                />
+                Checking the available evidence…
+              </div>
+            ) : message.error ? (
+              <div
+                key={message.id}
+                className="flex items-start gap-3 border border-risk/40 bg-risk/5 px-4 py-3 text-sm"
+                role="alert"
+              >
+                <CircleAlert
+                  className="mt-0.5 size-4 shrink-0 text-risk"
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="font-black">Assistant unavailable</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {message.content}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <StructuredAssistantMessage
+                key={message.id}
+                content={message.content}
+                evidence={message.evidence ?? []}
+              />
+            ),
+          )}
           <div ref={messagesEndRef} />
         </div>
       </main>
 
-      {/* Input */}
-      <footer className="border-t border-slate-800 bg-slate-900/50">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex gap-3">
-            <input
-              type="text"
+      <footer className="sticky bottom-0 border-t border-border bg-background/95 py-4 backdrop-blur-sm">
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <label className="flex-1">
+            <span className="sr-only">Question for the FPL assistant</span>
+            <Input
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Спроси о любом игроке..."
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Ask about a player or decision…"
               disabled={isLoading}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 disabled:opacity-50"
             />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              )}
-            </button>
-          </div>
+          </label>
+          <Button type="submit" disabled={isLoading || !input.trim()}>
+            {isLoading ? (
+              <LoaderCircle
+                className="animate-spin motion-reduce:animate-none"
+                aria-hidden="true"
+              />
+            ) : (
+              <ArrowUp aria-hidden="true" />
+            )}
+            <span className="hidden sm:inline">Ask</span>
+          </Button>
         </form>
+        <p className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <Sparkles className="size-3" aria-hidden="true" />
+          Assistant language:{" "}
+          {assistantLanguage === "auto"
+            ? "follows your question"
+            : assistantLanguage === "ru"
+              ? "Русский"
+              : "English"}
+        </p>
       </footer>
     </div>
   );

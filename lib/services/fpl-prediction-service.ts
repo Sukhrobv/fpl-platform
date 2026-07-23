@@ -18,7 +18,8 @@ import {
   buildDefenseFeatures,
   BasicMatchStat,
 } from "./prediction";
-import { calculateExpectedDefconPoints } from "./prediction/points";
+import { buildDefconProfile, DefconProfile } from "./prediction/defense/defconProfile";
+import { quickDefensePrediction, DefensePrediction } from "./prediction/defense/defensePredictor";
 
 const predictionEngine = new PredictionEngine();
 
@@ -91,6 +92,10 @@ export class FPLPredictionService {
           orderBy: { gameweek: "desc" },
           take: STATS_TAKE,
         },
+        fplStats: {
+          orderBy: [{ gameweek: "desc" }, { updatedAt: "desc" }],
+          take: 10,
+        },
       },
     });
 
@@ -150,9 +155,42 @@ export class FPLPredictionService {
 
         const aggRecent = aggregateStats(recentPlayedStats, 5);
         const recentMinsTotal = aggRecent.minutes;
+
+        const recentFplDefenseStats = player.fplStats
+          .filter(
+            (stat) =>
+              stat.minutes > 0 &&
+              (stat.cbi != null || stat.tackles != null || stat.recoveries != null)
+          )
+          .slice(0, 5)
+          .map((stat) => ({
+            cbi: stat.cbi,
+            tackles: stat.tackles,
+            recoveries: stat.recoveries,
+          }));
+        const recentFplDefenseMinutes = player.fplStats
+          .filter(
+            (stat) =>
+              stat.minutes > 0 &&
+              (stat.cbi != null || stat.tackles != null || stat.recoveries != null)
+          )
+          .slice(0, 5)
+          .reduce((sum, stat) => sum + stat.minutes, 0);
+        const fplDefenseFeatures = recentFplDefenseStats.length
+          ? buildDefenseFeatures(recentFplDefenseStats, recentFplDefenseMinutes)
+          : null;
         
         // B4.5: Build defense features for DEFCON calculation
-        const defenseFeatures = buildDefenseFeatures(recentMatchStats as any, recentMinsTotal);
+        const defenseFeatures =
+          fplDefenseFeatures ||
+          buildDefenseFeatures(recentMatchStats as any, recentMinsTotal);
+
+        // A4.3: Build DEFCON profile from historical data
+        const defconProfile: DefconProfile = buildDefconProfile(
+          recentFplDefenseStats.length ? recentFplDefenseStats : (recentMatchStats as any),
+          player.position,
+          recentFplDefenseStats.length ? recentFplDefenseMinutes : recentMinsTotal
+        );
 
         // Calculate perSub_ratio for role-based minutes penalty
         const perSubRatio = roleFeatures.perStart_xG > 0.01
@@ -200,6 +238,8 @@ export class FPLPredictionService {
 
         const teamSeasonAgg = aggregateStats(team.externalStats.filter((s) => s.gameweek > 0), 38);
         const teamRecentAgg = aggregateStats(team.externalStats.filter((s) => s.gameweek > 0), 6);
+        const teamPpgSeason = teamSeasonAgg.count ? teamSeasonAgg.pointsSum / teamSeasonAgg.count : undefined;
+        const teamPpgRecent = teamRecentAgg.count ? teamRecentAgg.pointsSum / teamRecentAgg.count : undefined;
 
         const teamInputBase: Omit<TeamInput, "isHome"> = {
           id: team.id,
@@ -212,6 +252,7 @@ export class FPLPredictionService {
           xGA90_recent: safePer90Team(teamRecentAgg.xGA, teamRecentAgg.minutes / 11),
           deep_recent: safePer90Team(teamRecentAgg.deep, teamRecentAgg.minutes / 11),
           ppda_recent: teamRecentAgg.count ? teamRecentAgg.ppdaSum / teamRecentAgg.count : undefined,
+          pointsPerGame: teamPpgRecent ?? teamPpgSeason,
         };
 
         const teamStrengthFeatures = buildTeamStrengthFeatures({ ...teamInputBase, isHome: true }, leagueAvg);
@@ -259,6 +300,11 @@ export class FPLPredictionService {
             deep_recent: safePer90Team(oppRecentAgg.deep, oppRecentAgg.minutes / 11),
             ppda_recent: oppRecentAgg.count ? oppRecentAgg.ppdaSum / oppRecentAgg.count : undefined,
             shotsAllowed90: safePer90Team(oppRecentAgg.shots, oppRecentAgg.minutes / 11) || 12.0,
+            pointsPerGame: oppRecentAgg.count
+              ? oppRecentAgg.pointsSum / oppRecentAgg.count
+              : oppSeasonAgg.count
+                ? oppSeasonAgg.pointsSum / oppSeasonAgg.count
+                : undefined,
           };
 
           const teamInput: TeamInput = {
@@ -266,13 +312,24 @@ export class FPLPredictionService {
             isHome,
           };
 
-          const { xPts, breakdown, raw } = predictionEngine.calculateXPts(
+          const { xPts, breakdown, raw, debug } = predictionEngine.calculateXPts(
             playerInput,
             teamInput,
             opponentInput,
             leagueAvg,
-            { defenseFeatures } // B4.5: Pass defense features for DEFCON calculation
+            { defenseFeatures, enableDebug: true } // B4.5: Pass defense features + enable debug
           );
+
+          const defconThreshold = player.position === "GOALKEEPER"
+            ? 0
+            : player.position === "DEFENDER"
+              ? 10
+              : 12;
+          const prob_60 = (playerInput.start_probability ?? 0) * 0.92;
+          const defconProb =
+            player.position !== "GOALKEEPER" && defenseFeatures && defenseFeatures.prob_defcon
+              ? Math.min(1, defenseFeatures.prob_defcon * prob_60)
+              : 0;
 
           const extendedRaw = {
             ...raw,
@@ -314,13 +371,14 @@ export class FPLPredictionService {
               schedule: scheduleFeatures,
               defense: defenseFeatures,
             },
-            // B4.5: Expected DEFCON points
-            expectedDefcon: calculateExpectedDefconPoints({
-              position: player.position,
-              cbit90: defenseFeatures.cbit90,
-              cbirt90: defenseFeatures.cbirt90,
-              prob_60: minPrediction.prob_60,
-            }),
+            // A4.4: Advanced DEFCON prediction using player profile
+            defconPrediction: quickDefensePrediction(defconProfile, minPrediction.expected_minutes),
+            defconProfile: {
+              baseline_cbit90: defconProfile.baseline_cbit90,
+              baseline_cbirt90: defconProfile.baseline_cbirt90,
+              role_multiplier: defconProfile.role_multiplier,
+              confidence: defconProfile.confidence,
+            },
           };
 
           gwData[gw] = {
@@ -331,6 +389,14 @@ export class FPLPredictionService {
             breakdown,
             raw: extendedRaw,
             context,
+            defcon: {
+              prob: defconProb,
+              mean: breakdown.defcon,
+              threshold: defconThreshold,
+              cbit90: defenseFeatures?.cbit90 ?? 0,
+              cbirt90: defenseFeatures?.cbirt90 ?? 0,
+            },
+            debug, // Debug trace for transparency UI
           };
 
           totalXPts += xPts;

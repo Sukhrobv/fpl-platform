@@ -68,7 +68,6 @@
 - Added feature calculators under `lib/services/prediction/features/` (schedule, injury, role, trends, team strength) with safe defaults.
 - Wired feature outputs into `FPLPredictionService` context (non-breaking, informational only) to prep for later model upgrades.
 - Schedule features now derive `rest_days` from recent matches; Europe flags/points-per-game still pending.
-- FBRef collector now parses fixtures/table rows via `data-stat` attributes (`lib/collectors/fbrefCollector.ts`) with heuristic parsing; Europe mapping remains TODO/placeholder-sensitive to FBRef markup.
 - Pending: integrate richer schedule data (fixture dates/europe flags), add points_per_game sourcing, and plug features into ML toggles (B6/B7) and simulations (B8).
 
 ---
@@ -92,7 +91,6 @@
   - First game back: `game_index_since_return === 0` → `pStartPenalty *= 0.7`
   - Impact sub: `perSub_ratio > 1.3` → `pStartPenalty *= 0.6`, cap ~35 min
 - ✅ Updated `fpl-prediction-service.ts` to pass context from features into minutes prediction.
-- ✅ Fixed pre-existing regex bug in `fbrefCollector.ts`.
 - ✅ Created 7 unit tests in `tests/prediction/minutes.test.ts` (all passing).
 
 ---
@@ -128,7 +126,7 @@
 
 **Official FPL 2025/26 Rules:**
 
-- DEF/GK: 10 CBIT (Clearances, Blocks, Interceptions, Tackles) = 2 pts
+- DEF: 10 CBIT (Clearances, Blocks, Interceptions, Tackles) = 2 pts; GK are not eligible
 - MID/FWD: 12 CBIRT (CBIT + Ball Recoveries) = 2 pts
 - Max 2 pts per match
 

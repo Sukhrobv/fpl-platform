@@ -1,6 +1,10 @@
-
 import { PrismaClient, Position } from "@prisma/client";
-import { PredictionService, PlayerInput, TeamInput, LeagueAverages } from "../lib/services/predictionService";
+import {
+  PredictionService,
+  PlayerInput,
+  TeamInput,
+  LeagueAverages,
+} from "../lib/services/predictionService";
 
 const prisma = new PrismaClient();
 const predictionService = new PredictionService();
@@ -9,9 +13,9 @@ const predictionService = new PredictionService();
 function getGameweekFromDate(date: Date): number {
   // Simplified mapping, can be improved with actual fixture dates
   const d = new Date(date);
-  if (d < new Date('2024-08-20')) return 1;
-  if (d < new Date('2024-08-27')) return 2;
-  if (d < new Date('2024-09-03')) return 3;
+  if (d < new Date("2024-08-20")) return 1;
+  if (d < new Date("2024-08-27")) return 2;
+  if (d < new Date("2024-09-03")) return 3;
   // ... add more if needed, but for now we rely on upcoming fixtures
   return 0;
 }
@@ -24,8 +28,8 @@ async function main() {
     where: { gameweek: 12 },
     include: {
       homeTeam: { include: { externalStats: true } },
-      awayTeam: { include: { externalStats: true } }
-    }
+      awayTeam: { include: { externalStats: true } },
+    },
   });
 
   if (fixtures.length === 0) {
@@ -37,17 +41,17 @@ async function main() {
 
   // 2. Fetch Players
   const players = await prisma.player.findMany({
-    where: { 
+    where: {
       chanceOfPlaying: { gt: 0 }, // Only available players
     },
     include: {
       team: {
         include: {
-          externalStats: true
-        }
+          externalStats: true,
+        },
       },
-      externalStats: true
-    }
+      externalStats: true,
+    },
   });
 
   console.log(`👥 Analyzing ${players.length} players...`);
@@ -57,35 +61,45 @@ async function main() {
     avg_xG: 1.45,
     avg_xGA: 1.45,
     avg_deep: 6.5,
-    avg_ppda: 11.5
+    avg_ppda: 11.5,
   };
 
   const predictions: any[] = [];
 
   for (const player of players) {
     // Find player's fixture in GW 12
-    const fixture = fixtures.find(f => f.homeTeamId === player.teamId || f.awayTeamId === player.teamId);
+    const fixture = fixtures.find(
+      (f) => f.homeTeamId === player.teamId || f.awayTeamId === player.teamId,
+    );
     if (!fixture) continue;
 
     const isHome = fixture.homeTeamId === player.teamId;
     const opponentTeam = isHome ? fixture.awayTeam : fixture.homeTeam;
 
     // Prepare Inputs (using Season Totals from GW 0)
-    const pStats = player.externalStats.find(s => s.gameweek === 0) || player.externalStats[0];
+    const pStats =
+      player.externalStats.find((s) => s.gameweek === 0) ||
+      player.externalStats[0];
     if (!pStats) continue;
 
-    if (player.webName === 'Saka' || player.webName === 'Havertz') {
-        console.log(`\n🔍 Debug ${player.webName}:`);
-        console.log(`   pStats: ${JSON.stringify(pStats)}`);
-        console.log(`   Calc xA90: ${(pStats.xA || 0)} / ${(pStats.minutes || 1)} * 90 = ${(pStats.xA || 0) / (pStats.minutes || 1) * 90}`);
+    if (player.webName === "Saka" || player.webName === "Havertz") {
+      console.log(`\n🔍 Debug ${player.webName}:`);
+      console.log(`   pStats: ${JSON.stringify(pStats)}`);
+      console.log(
+        `   Calc xA90: ${pStats.xA || 0} / ${pStats.minutes || 1} * 90 = ${((pStats.xA || 0) / (pStats.minutes || 1)) * 90}`,
+      );
     }
-    const teamStats = player.team.externalStats.find(s => s.gameweek === 0) || player.team.externalStats[0];
-    const oppStats = opponentTeam.externalStats.find(s => s.gameweek === 0) || opponentTeam.externalStats[0];
+    const teamStats =
+      player.team.externalStats.find((s) => s.gameweek === 0) ||
+      player.team.externalStats[0];
+    const oppStats =
+      opponentTeam.externalStats.find((s) => s.gameweek === 0) ||
+      opponentTeam.externalStats[0];
 
     // Normalize to per-match
     const G = 11; // Approx games played
-    const minutes_recent_proxy = (pStats.minutes || 0) / G * 5;
-    
+    const minutes_recent_proxy = ((pStats.minutes || 0) / G) * 5;
+
     // Estimate start probability based on minutes
     // If avg minutes per game < 45, likely a sub or rotation risk
     const avg_mins = (pStats.minutes || 0) / G;
@@ -96,13 +110,19 @@ async function main() {
       name: player.webName,
       position: player.position,
       price: player.nowCost,
-      xG90_season: (pStats.xG || 0) / (pStats.minutes || 1) * 90,
-      xA90_season: (pStats.xA || 0) / (pStats.minutes || 1) * 90,
-      shots90_season: (pStats.shots || 0) / (pStats.minutes || 1) * 90,
-      keyPasses90_season: (pStats.keyPasses || 0) / (pStats.minutes || 1) * 90,
+      xG90_season: ((pStats.xG || 0) / (pStats.minutes || 1)) * 90,
+      xA90_season: ((pStats.xA || 0) / (pStats.minutes || 1)) * 90,
+      shots90_season: ((pStats.shots || 0) / (pStats.minutes || 1)) * 90,
+      keyPasses90_season:
+        ((pStats.keyPasses || 0) / (pStats.minutes || 1)) * 90,
+      xG90_recent: ((pStats.xG || 0) / (pStats.minutes || 1)) * 90,
+      xA90_recent: ((pStats.xA || 0) / (pStats.minutes || 1)) * 90,
+      shots90_recent: ((pStats.shots || 0) / (pStats.minutes || 1)) * 90,
+      keyPasses90_recent:
+        ((pStats.keyPasses || 0) / (pStats.minutes || 1)) * 90,
       minutes_recent: minutes_recent_proxy,
       season_minutes: pStats.minutes || 0,
-      start_probability: estimated_start_prob
+      start_probability: estimated_start_prob,
     };
 
     const teamInput: TeamInput = {
@@ -112,7 +132,7 @@ async function main() {
       xG90_season: (teamStats?.xG || 15) / G,
       xGA90_season: (teamStats?.xGA || 15) / G,
       deep_season: (teamStats?.deep || 70) / G,
-      ppda_season: teamStats?.ppda || 12
+      ppda_season: teamStats?.ppda || 12,
     };
 
     const oppInput: TeamInput = {
@@ -123,11 +143,20 @@ async function main() {
       xGA90_season: (oppStats?.xGA || 15) / G,
       deep_season: (oppStats?.deep || 70) / G,
       ppda_season: oppStats?.ppda || 12,
-      shotsAllowed90: 12.0 // Fallback
+      shotsAllowed90: 12.0, // Fallback
     };
 
-    const pred = predictionService.calculateXPts(playerInput, teamInput, oppInput, leagueAvg);
-    predictions.push({ ...pred, position: player.position, price: player.nowCost });
+    const pred = predictionService.calculateXPts(
+      playerInput,
+      teamInput,
+      oppInput,
+      leagueAvg,
+    );
+    predictions.push({
+      ...pred,
+      position: player.position,
+      price: player.nowCost,
+    });
   }
 
   // 4. Analysis
@@ -135,7 +164,7 @@ async function main() {
 
   // Average xPts by Position
   const byPos: Record<string, number[]> = {};
-  predictions.forEach(p => {
+  predictions.forEach((p) => {
     if (!byPos[p.position]) byPos[p.position] = [];
     byPos[p.position].push(p.xPts);
   });
@@ -152,16 +181,20 @@ async function main() {
   predictions.slice(0, 10).forEach((p, i) => {
     console.log(`   ${i + 1}. ${p.playerName} (${p.position}): ${p.xPts} xPts`);
     if (i < 5) {
-      console.log(`      Raw Stats: xG90=${p.raw.xG.toFixed(2)}, xA90=${p.raw.xA.toFixed(2)}`);
-      console.log(`      Breakdown: Att=${p.breakdown.attack}, App=${p.breakdown.appearance}, Bonus=${p.breakdown.bonus}`);
+      console.log(
+        `      Raw Stats: xG90=${p.raw.xG.toFixed(2)}, xA90=${p.raw.xA.toFixed(2)}`,
+      );
+      console.log(
+        `      Breakdown: Att=${p.breakdown.attack}, App=${p.breakdown.appearance}, Bonus=${p.breakdown.bonus}`,
+      );
     }
   });
 
   // Price Correlation
   // Simple check: do expensive players score more?
-  const expensive = predictions.filter(p => p.price > 100); // >10.0m
-  const cheap = predictions.filter(p => p.price < 50); // <5.0m
-  
+  const expensive = predictions.filter((p) => p.price > 100); // >10.0m
+  const cheap = predictions.filter((p) => p.price < 50); // <5.0m
+
   const avgExp = expensive.reduce((a, b) => a + b.xPts, 0) / expensive.length;
   const avgCheap = cheap.reduce((a, b) => a + b.xPts, 0) / cheap.length;
 
