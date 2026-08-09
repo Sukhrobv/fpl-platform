@@ -1,117 +1,50 @@
-# FPL Analytics Platform 🎯
+# FPL Analytics Platform
 
-Personal analytics platform for Fantasy Premier League that aggregates data from multiple sources and provides AI-powered insights.
+Internal Fantasy Premier League analytics workspace. It ingests official FPL
+data, enriches it with saved preseason-minutes evidence and produces
+fixture-by-fixture internal forecasts for the next five gameweeks.
 
-## 🚀 Features (Planned)
+The 2026/27 prediction surface is internal. It does not publish forecasts,
+activate a season, or submit FPL actions.
 
-- **Multi-source data aggregation** - FPL API, Sofascore, Understat
-- **Intelligent player mapping** - Connecting players across different data sources
-- **AI-powered insights** - Natural language queries about your FPL team
-- **Personal team analysis** - Tailored recommendations based on your squad
-- **Real-time updates** - Automated data synchronization after matches
+## Requirements
 
-## 🛠 Tech Stack
+- Node.js 20+
+- PostgreSQL database configured through `DATABASE_URL`
 
-- **Framework:** Next.js 14 (App Router)
-- **Language:** TypeScript
-- **Database:** PostgreSQL + Prisma ORM
-- **Styling:** Tailwind CSS + shadcn/ui
-- **AI Integration:** OpenAI/Claude API
-- **Deployment:** Docker (planned)
-
-## 📦 Installation
+## Start
 
 ```bash
-# Clone repository
-git clone https://github.com/USERNAME/fpl-platform.git
-cd fpl-platform
-
-# Install dependencies
 npm install
-
-# Setup environment variables
-cp .env.example .env.local
-# Edit .env.local with your database credentials
-
-# Setup database
-npx prisma migrate dev
-
-# Run development server
 npm run dev
 ```
 
-## 🗺 Development Roadmap
-
-### Phase 1: Foundation ✅
-- [x] Project setup with Next.js + TypeScript
-- [x] Database schema design
-- [ ] Basic infrastructure
-
-### Phase 2: FPL Integration 🚧
-- [ ] FPL API client
-- [ ] Data models and storage
-- [ ] Automated updates
-
-### Phase 3: External Data 📅
-- [ ] Sofascore integration
-- [ ] Player mapping algorithm
-- [ ] Data validation
-
-### Phase 4: AI Integration 📅
-- [ ] LLM integration
-- [ ] Natural language to SQL
-- [ ] Smart recommendations
-
-### Phase 5: User Interface 📅
-- [ ] Dashboard design
-- [ ] Data visualizations
-- [ ] Mobile responsive
-
-## 🔧 Development
+Useful checks:
 
 ```bash
-# Run dev server
-npm run dev
-
-# Run type checking
+npm test
 npm run type-check
-
-# Run linting
-npm run lint
-
-# Format code
-npm run format
-
-# Database migrations
-npx prisma migrate dev
-npx prisma studio  # Visual database editor
+npm run format:check
 ```
 
-## 📁 Project Structure
+## Data commands
 
-```
-fpl-platform/
-├── app/              # Next.js app router
-│   ├── api/         # API endpoints
-│   └── (dashboard)/ # UI pages
-├── components/       # React components
-├── lib/             # Core logic
-│   ├── db/         # Database client
-│   ├── parsers/    # Data parsers
-│   ├── mappers/    # Player mapping
-│   └── ai/         # AI integration
-├── prisma/          # Database schema
-└── types/           # TypeScript types
+```bash
+npm run sync:fpl
+npm run sync:preseason-minutes -- --season=2026/27
+npm run sync:h2h-history -- --season=2025/26
+npm run preview:rolling -- --season=2026/27
 ```
 
-## 👤 Author
+`sync:fpl` rebuilds the internal rolling preview after a successful official
+sync. The preseason tracker is a saved evidence source: positive friendly
+minutes can only cap expected minutes for the first upcoming fixture.
 
-Created as a personal project for FPL analytics.
+## Documentation
 
-## 📄 License
+Current delivery status: `status.yaml`.
 
-Private project - not for commercial use.
+Current authorised roadmap:
+[`docs/analytics/data-foundation-roadmap.md`](docs/analytics/data-foundation-roadmap.md).
 
----
-
-**Status:** 🚧 Under active development
+Historical planning material lives in [`docs/archive`](docs/archive).

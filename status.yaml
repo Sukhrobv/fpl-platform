@@ -1,5 +1,5 @@
 ﻿# FPL Platform - Status File
-# Updated: 2026-08-08 20:35
+# Updated: 2026-08-09 07:31
 # Chat ID: initial_development_session
 # GitHub: https://github.com/Sukhrobv/fpl-platform
 
@@ -7,7 +7,7 @@ project_info:
   name: "FPL Analytics Platform"
   version: "0.1.0"
   status: "Active Development"
-  last_sync: "2026-08-08 20:35"
+  last_sync: "2026-08-09 07:31"
   repository: "https://github.com/Sukhrobv/fpl-platform"
   description: "Personal FPL analytics tool with Next.js monolith architecture"
 
@@ -263,6 +263,8 @@ project_info:
         - "D0.8 Builder geometry: all pitch slots now use the same compact fixed 56×64 px rectangle and each positional line is centered, so goalkeeper, defender, midfielder and forward cells no longer stretch to different widths. All 169 tests pass."
         - "D0.8 Builder geometry refinement: increased every fixed pitch slot to 68×76 px and enlarged the shirt marker for legibility, while preserving centered positional lines and equal dimensions. All 169 tests pass."
         - "D0.8 Builder spacing refinement: increased the gap between equal fixed slots from 8 px to 12 px without changing their size or centered layout. All 169 tests pass."
+        - "D0.8 Builder draft persistence: replaced the stale debounced auto-save closure with memoized draft state plus stable save/restore callbacks. The debounce now depends on the actual save callback; ESLint has no hook warnings, TypeScript is clean and all 169 tests pass."
+        - "D0.8 maintenance cleanup: removed generated caches, retired compiled scripts, one-off blueprint generators, unused debug/UI code, duplicate Prisma config and a permanently skipped API test. Archived superseded plans under docs/archive, rewrote the repository guide and reduced brittle UI source-string checks to stable dependency contracts. TypeScript, Prisma validation and all 161 remaining tests pass."
       notes: "The 2026/27 rolling next-five-GW preview and Preseason Decision Model remain internal. Each upcoming fixture is forecast independently and double/blank gameweeks are represented truthfully. Historical rates begin the season; official current-season FPL minutes, xG/xA, DEFCON, bonuses, saves and team scores progressively replace them after settled games are synced. A bounded H2H residual may nudge, never replace, the player baseline after at least 60 minutes from no more than two prior fixtures against the opponent; its influence is capped at 15%. The fixture card exposes the actual H2H sample (season, matches, minutes, xG, xA, goals and assists) separately from the model weight and final fixture rate. Google Sheets preseason minutes remain a saved source: only positive friendly participation creates a buffered cap for the first upcoming fixture, while an all-zero friendly record remains evidence-only. Bonus and save components are conservative rate-based expectations, not calibrated probabilities. The next required gate, pending explicit approval, is an immutable per-GW audit comparing the forecast available before the deadline with official outcomes; it must not tune weights until that audit evidence exists. The labelled local Squad Builder persists internal drafts but cannot submit an FPL action, enable publication or activate the season. Existing public-facing projections are not switched, 2026/27 remains UPCOMING/non-current, publication is false and activation is not requested. The final Next.js build still stops after successful compilation on separately tracked ESLint debt in pre-existing feature code."
 
     next_steps:
