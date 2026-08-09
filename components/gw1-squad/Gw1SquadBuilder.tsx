@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -309,6 +309,48 @@ export function Gw1SquadBuilder() {
     position: "GOALKEEPER",
     index: 0,
   });
+  const draftState = useMemo<SquadDraftState>(
+    () => ({
+      playerIds: selectedIds,
+      starterIds,
+      captainId,
+      viceCaptainId,
+      bank,
+    }),
+    [bank, captainId, selectedIds, starterIds, viceCaptainId],
+  );
+  const restoreDraft = useCallback(
+    (draft: SquadDraft, playerPool: PreviewPlayer[]) => {
+      const availableIds = new Set(
+        playerPool.map((player) => player.seasonPlayerId),
+      );
+      const playerIds = draft.state.playerIds.filter((id) =>
+        availableIds.has(id),
+      );
+      const selectedSet = new Set(playerIds);
+      const nextStarterIds = draft.state.starterIds.filter((id) =>
+        selectedSet.has(id),
+      );
+      setSelectedIds(playerIds);
+      setStarterIds(nextStarterIds);
+      setCaptainId(
+        draft.state.captainId != null &&
+          nextStarterIds.includes(draft.state.captainId)
+          ? draft.state.captainId
+          : null,
+      );
+      setViceCaptainId(
+        draft.state.viceCaptainId != null &&
+          nextStarterIds.includes(draft.state.viceCaptainId)
+          ? draft.state.viceCaptainId
+          : null,
+      );
+      setBank(draft.state.bank);
+      setAutoPick(null);
+      setAutoPickError(null);
+    },
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -381,23 +423,7 @@ export function Gw1SquadBuilder() {
     return () => {
       active = false;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!draftsReady || activeDraftId == null) return;
-    const timeout = window.setTimeout(() => {
-      void saveActiveDraft();
-    }, 700);
-    return () => window.clearTimeout(timeout);
-  }, [
-    activeDraftId,
-    bank,
-    captainId,
-    draftsReady,
-    selectedIds,
-    starterIds,
-    viceCaptainId,
-  ]);
+  }, [restoreDraft]);
 
   const selected = useMemo(
     () =>
@@ -514,46 +540,10 @@ export function Gw1SquadBuilder() {
   }
 
   function currentDraftState(): SquadDraftState {
-    return {
-      playerIds: selectedIds,
-      starterIds,
-      captainId,
-      viceCaptainId,
-      bank,
-    };
+    return draftState;
   }
 
-  function restoreDraft(draft: SquadDraft, playerPool = players) {
-    const availableIds = new Set(
-      playerPool.map((player) => player.seasonPlayerId),
-    );
-    const playerIds = draft.state.playerIds.filter((id) =>
-      availableIds.has(id),
-    );
-    const selectedSet = new Set(playerIds);
-    const nextStarterIds = draft.state.starterIds.filter((id) =>
-      selectedSet.has(id),
-    );
-    setSelectedIds(playerIds);
-    setStarterIds(nextStarterIds);
-    setCaptainId(
-      draft.state.captainId != null &&
-        nextStarterIds.includes(draft.state.captainId)
-        ? draft.state.captainId
-        : null,
-    );
-    setViceCaptainId(
-      draft.state.viceCaptainId != null &&
-        nextStarterIds.includes(draft.state.viceCaptainId)
-        ? draft.state.viceCaptainId
-        : null,
-    );
-    setBank(draft.state.bank);
-    setAutoPick(null);
-    setAutoPickError(null);
-  }
-
-  async function saveActiveDraft() {
+  const saveActiveDraft = useCallback(async () => {
     if (activeDraftId == null) return false;
     setSaveStatus("saving");
     try {
@@ -562,7 +552,7 @@ export function Gw1SquadBuilder() {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ state: currentDraftState() }),
+          body: JSON.stringify({ state: draftState }),
         },
       );
       const payload = (await response.json()) as
@@ -590,7 +580,15 @@ export function Gw1SquadBuilder() {
       );
       return false;
     }
-  }
+  }, [activeDraftId, draftState]);
+
+  useEffect(() => {
+    if (!draftsReady || activeDraftId == null) return;
+    const timeout = window.setTimeout(() => {
+      void saveActiveDraft();
+    }, 700);
+    return () => window.clearTimeout(timeout);
+  }, [activeDraftId, draftsReady, saveActiveDraft]);
 
   async function createDraft(name: string, state = currentDraftState()) {
     const normalizedName = name.trim();
@@ -635,13 +633,13 @@ export function Gw1SquadBuilder() {
     if (!draft || draft.id === activeDraftId) return;
     if (!(await saveActiveDraft())) return;
     setActiveDraftId(draft.id);
-    restoreDraft(draft);
+    restoreDraft(draft, players);
   }
 
   async function createNewDraft() {
     if (activeDraftId != null && !(await saveActiveDraft())) return;
     const draft = await createDraft("GW1 draft", emptyDraftState());
-    if (draft) restoreDraft(draft);
+    if (draft) restoreDraft(draft, players);
   }
 
   async function createVariant() {
@@ -672,7 +670,7 @@ export function Gw1SquadBuilder() {
       setDrafts(remainingDrafts);
       if (remainingDrafts[0]) {
         setActiveDraftId(remainingDrafts[0].id);
-        restoreDraft(remainingDrafts[0]);
+        restoreDraft(remainingDrafts[0], players);
       } else {
         await createNewDraft();
       }
