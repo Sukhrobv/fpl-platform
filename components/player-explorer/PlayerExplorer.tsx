@@ -52,7 +52,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyForecastCell, ForecastCell } from "./ForecastCell";
-import { PlayerIdentity } from "@/components/decision/DecisionPrimitives";
+import {
+  PlayerIdentity,
+  TeamMark,
+} from "@/components/decision/DecisionPrimitives";
 import {
   PlayerComparisonDialog,
   PlayerDetailsDialog,
@@ -67,6 +70,7 @@ import {
   type PlayerApiItem,
   type PlayerPosition,
   type PredictionPayload,
+  type PreseasonOverride,
 } from "./model";
 
 type Density = "compact" | "comfortable";
@@ -80,6 +84,13 @@ interface PlayersResponse {
 interface PredictionsResponse {
   gameweeks?: number[];
   predictions?: PredictionPayload[];
+  source?: "GW1_PRESEASON_PREVIEW" | "ROLLING_NEXT_5";
+  status?: "PREVIEW_ONLY" | "NOT_READY";
+  methodology?: string;
+}
+
+interface OverridesResponse {
+  overrides?: Array<PreseasonOverride & { seasonPlayerId: number }>;
 }
 
 const columnHelper = createColumnHelper<ExplorerPlayer>();
@@ -109,9 +120,26 @@ function columnPinStyles(
   };
 }
 
+function isForecastColumn(columnId: string) {
+  return (
+    columnId.startsWith("gw-") ||
+    ["forecastTotal", "forecastRange", "seasonValue", "forecastValue"].includes(
+      columnId,
+    )
+  );
+}
+
 export function PlayerExplorer() {
   const [players, setPlayers] = useState<ExplorerPlayer[]>([]);
   const [gameweeks, setGameweeks] = useState<number[]>([]);
+  const [predictionStatus, setPredictionStatus] =
+    useState<PredictionsResponse["status"]>();
+  const [predictionSource, setPredictionSource] =
+    useState<PredictionsResponse["source"]>();
+  const [methodology, setMethodology] = useState("");
+  const [overrides, setOverrides] = useState<Record<number, PreseasonOverride>>(
+    {},
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [density, setDensity] = useState<Density>("compact");
@@ -141,9 +169,11 @@ export function PlayerExplorer() {
 
     async function load() {
       try {
-        const [playersResult, predictionsResult] = await Promise.allSettled([
-          fetch("/api/players?page=1&pageSize=1000&details=true").then(
-            async (response) => {
+        const [playersResult, predictionsResult, overridesResult] =
+          await Promise.allSettled([
+            fetch(
+              "/api/players?page=1&pageSize=1000&details=true&season=2026%2F27",
+            ).then(async (response) => {
               const payload = (await response.json()) as PlayersResponse;
               if (!response.ok || !payload.success || !payload.data) {
                 throw new Error(
@@ -151,13 +181,20 @@ export function PlayerExplorer() {
                 );
               }
               return payload.data.items;
-            },
-          ),
-          fetch("/api/predictions?range=5").then(async (response) => {
-            if (!response.ok) return null;
-            return (await response.json()) as PredictionsResponse;
-          }),
-        ]);
+            }),
+            fetch("/api/predictions?season=2026%2F27").then(
+              async (response) => {
+                if (!response.ok) return null;
+                return (await response.json()) as PredictionsResponse;
+              },
+            ),
+            fetch("/api/preseason-overrides?season=2026%2F27").then(
+              async (response) => {
+                if (!response.ok) return null;
+                return (await response.json()) as OverridesResponse;
+              },
+            ),
+          ]);
 
         if (!active) return;
         if (playersResult.status === "rejected") {
@@ -175,6 +212,19 @@ export function PlayerExplorer() {
           ),
         );
         setGameweeks(predictionPayload?.gameweeks ?? []);
+        setPredictionStatus(predictionPayload?.status);
+        setPredictionSource(predictionPayload?.source);
+        setMethodology(predictionPayload?.methodology ?? "");
+        const overridePayload =
+          overridesResult.status === "fulfilled" ? overridesResult.value : null;
+        setOverrides(
+          Object.fromEntries(
+            (overridePayload?.overrides ?? []).map((override) => [
+              override.seasonPlayerId,
+              override,
+            ]),
+          ),
+        );
       } catch (loadError) {
         if (active) {
           setError(
@@ -213,6 +263,47 @@ export function PlayerExplorer() {
   const toggleComparison = useCallback((player: ExplorerPlayer) => {
     setSelectedPlayers((current) => updateComparisonSelection(current, player));
   }, []);
+
+  const refreshPredictions = useCallback(async () => {
+    const response = await fetch("/api/predictions?season=2026%2F27");
+    if (!response.ok) throw new Error("Could not refresh preseason preview");
+    const payload = (await response.json()) as PredictionsResponse;
+    setPlayers((current) => {
+      const next = mergePlayersWithPredictions(
+        current,
+        payload.predictions ?? [],
+      );
+      setDetailPlayer((selected) =>
+        selected
+          ? (next.find((player) => player.id === selected.id) ?? selected)
+          : null,
+      );
+      return next;
+    });
+    setGameweeks(payload.gameweeks ?? []);
+    setPredictionStatus(payload.status);
+    setPredictionSource(payload.source);
+    setMethodology(payload.methodology ?? "");
+  }, []);
+
+  const handleOverrideChange = useCallback(
+    (seasonPlayerId: number, override: PreseasonOverride | null) => {
+      setOverrides((current) => {
+        const next = { ...current };
+        if (override) next[seasonPlayerId] = override;
+        else delete next[seasonPlayerId];
+        return next;
+      });
+      void refreshPredictions().catch((refreshError) =>
+        setError(
+          refreshError instanceof Error
+            ? refreshError.message
+            : "Could not refresh preseason preview",
+        ),
+      );
+    },
+    [refreshPredictions],
+  );
 
   const showDetails = useCallback((player: ExplorerPlayer) => {
     setDetailPlayer(player);
@@ -263,7 +354,15 @@ export function PlayerExplorer() {
         size: 86,
         enableHiding: false,
         cell: ({ getValue, row }) => (
-          <span title={row.original.team.name} className="font-semibold">
+          <span
+            title={row.original.team.name}
+            className="inline-flex items-center gap-1.5 font-semibold"
+          >
+            <TeamMark
+              shortName={getValue()}
+              name={row.original.team.name}
+              size="sm"
+            />
             {getValue()}
           </span>
         ),
@@ -316,8 +415,56 @@ export function PlayerExplorer() {
           return value == null ? (
             <EmptyForecastCell />
           ) : (
-            <span className="fpl-data font-black text-forecast">
+            <span className="fpl-data rounded-md bg-forecast/10 px-1.5 py-0.5 font-black text-forecast">
               {value.toFixed(1)}
+            </span>
+          );
+        },
+      }),
+      columnHelper.accessor("forecastRange", {
+        id: "forecastRange",
+        header: "Range",
+        size: 108,
+        sortUndefined: "last",
+        cell: ({ getValue }) => {
+          const range = getValue();
+          return range ? (
+            <span className="fpl-data text-muted-foreground">
+              {range.lower.toFixed(1)}–{range.upper.toFixed(1)}
+            </span>
+          ) : (
+            <EmptyForecastCell />
+          );
+        },
+      }),
+      columnHelper.accessor("costPerSeasonPoint", {
+        id: "seasonValue",
+        header: "£m / pt",
+        size: 96,
+        sortUndefined: "last",
+        cell: ({ getValue }) => {
+          const value = getValue();
+          return value == null ? (
+            <EmptyForecastCell />
+          ) : (
+            <span className="fpl-data text-muted-foreground">
+              {value.toFixed(2)}
+            </span>
+          );
+        },
+      }),
+      columnHelper.accessor("costPerForecastPoint", {
+        id: "forecastValue",
+        header: "£m / xPt",
+        size: 102,
+        sortUndefined: "last",
+        cell: ({ getValue }) => {
+          const value = getValue();
+          return value == null ? (
+            <EmptyForecastCell />
+          ) : (
+            <span className="fpl-data font-bold text-forecast">
+              {value.toFixed(2)}
             </span>
           );
         },
@@ -440,9 +587,13 @@ export function PlayerExplorer() {
       <div className="mb-6 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge variant="outline">UI0.3 prototype</Badge>
+            <Badge variant="outline">
+              {predictionSource === "ROLLING_NEXT_5"
+                ? "Internal next-5 preview"
+                : "Internal GW1 preview"}
+            </Badge>
             <span className="text-xs font-semibold text-stale">
-              2026/27 roster pending · 2025/26 evidence frozen
+              2026/27 roster · rolling internal estimate · not published
             </span>
           </div>
           <h1
@@ -452,8 +603,8 @@ export function PlayerExplorer() {
             Player Explorer
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Scan the complete player pool, then narrow the decision set without
-            losing data provenance or forecast confidence.
+            Scan the canonical 2026/27 player pool. Forecasts are calculated
+            fixture by fixture and will refresh after official FPL syncs.
           </p>
         </div>
         <dl className="grid grid-cols-3 border border-border bg-card text-right">
@@ -484,7 +635,7 @@ export function PlayerExplorer() {
         </dl>
       </div>
 
-      <div className="border border-border bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/90 shadow-[0_16px_40px_oklch(0.35_0.02_40_/_0.05)]">
         <div className="flex flex-col gap-3 border-b border-border p-3 xl:flex-row xl:items-center">
           <label className="relative min-w-64 flex-1 xl:max-w-sm">
             <span className="sr-only">Search players or teams</span>
@@ -609,6 +760,20 @@ export function PlayerExplorer() {
           </div>
         </div>
 
+        {predictionStatus === "PREVIEW_ONLY" && (
+          <div className="flex items-start gap-2 border-b border-border bg-uncertainty/8 px-3 py-2 text-xs text-muted-foreground">
+            <ShieldAlert
+              className="mt-0.5 size-4 shrink-0 text-uncertainty"
+              aria-hidden="true"
+            />
+            <span>
+              GW1 only: this is a prior-based pre-season estimate. Opponent
+              strength, clean-sheet and bonus effects are excluded until 2026/27
+              evidence is available. {methodology}
+            </span>
+          </div>
+        )}
+
         {!gameweeks.length && (
           <div className="flex items-center gap-2 border-b border-border bg-uncertainty/8 px-3 py-2 text-xs text-muted-foreground">
             <ShieldAlert
@@ -616,8 +781,8 @@ export function PlayerExplorer() {
               aria-hidden="true"
             />
             <span>
-              Official 2026/27 fixtures are not available. Forecast columns stay
-              empty instead of reusing stale gameweeks.
+              The season-scoped GW1 preview is not ready. Forecast columns stay
+              empty instead of reusing legacy gameweeks.
             </span>
           </div>
         )}
@@ -675,7 +840,7 @@ export function PlayerExplorer() {
 
         <div
           ref={scrollRef}
-          className="relative h-[min(65dvh,44rem)] overflow-auto"
+          className="relative h-[min(72dvh,56rem)] overflow-auto"
           role="region"
           aria-label="Scrollable player table"
           tabIndex={0}
@@ -689,6 +854,7 @@ export function PlayerExplorer() {
                 <tr key={headerGroup.id} className="flex w-full">
                   {headerGroup.headers.map((header) => {
                     const sorted = header.column.getIsSorted();
+                    const forecastColumn = isForecastColumn(header.column.id);
                     return (
                       <th
                         key={header.id}
@@ -702,6 +868,7 @@ export function PlayerExplorer() {
                         }
                         className={cn(
                           "flex h-10 shrink-0 items-center border-r border-border bg-card px-3 text-left text-[10px] font-black tracking-[0.08em] text-muted-foreground uppercase last:border-r-0",
+                          forecastColumn && "justify-center text-center",
                           header.column.getIsPinned() &&
                             "shadow-[1px_0_0_var(--border)]",
                         )}
@@ -713,7 +880,10 @@ export function PlayerExplorer() {
                         {header.isPlaceholder ? null : header.column.getCanSort() ? (
                           <button
                             type="button"
-                            className="flex w-full items-center justify-between gap-1 outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                            className={cn(
+                              "flex w-full items-center justify-between gap-1 outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+                              forecastColumn && "justify-center",
+                            )}
                             onClick={header.column.getToggleSortingHandler()}
                           >
                             {flexRender(
@@ -757,7 +927,12 @@ export function PlayerExplorer() {
                     key={row.id}
                     data-index={virtualRow.index}
                     ref={(node) => virtualizer.measureElement(node)}
-                    className="absolute flex w-full border-b border-border bg-card hover:bg-muted/50"
+                    className={cn(
+                      "absolute flex w-full border-b border-border/75 bg-card/90 transition-colors hover:bg-muted/70",
+                      selectedPlayers.some(
+                        (player) => player.id === row.original.id,
+                      ) && "bg-primary/6 shadow-[inset_3px_0_0_var(--primary)]",
+                    )}
                     style={{
                       minHeight: rowHeight,
                       transform: `translateY(${virtualRow.start}px)`,
@@ -768,6 +943,8 @@ export function PlayerExplorer() {
                         key={cell.id}
                         className={cn(
                           "flex shrink-0 items-center justify-end overflow-hidden border-r border-border bg-inherit px-3 last:border-r-0 first:justify-start",
+                          isForecastColumn(cell.column.id) &&
+                            "justify-center text-center",
                           cell.column.getIsPinned() &&
                             "shadow-[1px_0_0_var(--border)]",
                         )}
@@ -817,6 +994,8 @@ export function PlayerExplorer() {
           selectedPlayers.some((player) => player.id === detailPlayer.id)
         }
         onToggleCompare={toggleComparison}
+        override={detailPlayer ? (overrides[detailPlayer.id] ?? null) : null}
+        onOverrideChange={handleOverrideChange}
       />
       <PlayerComparisonDialog
         players={selectedPlayers}

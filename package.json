@@ -18,6 +18,12 @@
     "db:seed": "tsx prisma/seed.ts",
     "test:db": "tsx scripts/test-db.ts",
     "sync:fpl": "tsx scripts/sync-fpl.ts",
+    "sync:preseason-minutes": "tsx scripts/sync-preseason-minutes-tracker.ts",
+    "sync:h2h-history": "tsx scripts/sync-fpl-historical-h2h.ts",
+    "preview:gw1": "tsx scripts/build-gw1-preseason-preview.ts",
+    "preview:rolling": "tsx scripts/build-rolling-prediction-preview.ts",
+    "audit:gw1": "tsx scripts/audit-gw1-preseason-preview.ts",
+    "audit:history": "tsx scripts/audit-historical-walk-forward.ts",
     "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {

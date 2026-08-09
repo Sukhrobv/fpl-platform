@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import {
   Bot,
   ChartNoAxesCombined,
+  ClipboardPenLine,
   Database,
   Home,
   Menu,
@@ -31,6 +32,7 @@ const navigation = [
   { href: "/", label: "Overview", icon: Home },
   { href: "/personal", label: "My team", icon: Users },
   { href: "/predictions", label: "Player explorer", icon: ChartNoAxesCombined },
+  { href: "/gw1-squad", label: "GW1 builder", icon: ClipboardPenLine },
   { href: "/chat", label: "Assistant", icon: Bot },
 ] as const;
 
@@ -41,7 +43,7 @@ function Brand() {
       className="flex items-center gap-3"
       aria-label="FPL Index home"
     >
-      <span className="grid size-8 place-items-center border border-foreground bg-foreground text-xs font-black tracking-tighter text-background">
+      <span className="grid size-8 place-items-center rounded-xl bg-primary text-xs font-black tracking-tighter text-primary-foreground shadow-sm">
         FI
       </span>
       <span>
@@ -69,10 +71,10 @@ function Navigation({ mobile = false }: { mobile?: boolean }) {
             key={href}
             href={href}
             className={cn(
-              "group flex min-h-10 items-center gap-3 border-l-2 px-3 text-sm font-semibold transition-colors duration-(--fpl-motion-fast)",
+              "group flex min-h-10 items-center gap-3 rounded-lg border-l-2 px-3 text-sm font-semibold transition-colors duration-(--fpl-motion-fast)",
               active
-                ? "border-primary bg-primary/8 text-foreground"
-                : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground",
+                ? "border-primary bg-primary/9 text-primary"
+                : "border-transparent text-muted-foreground hover:border-primary/25 hover:bg-muted hover:text-foreground",
               mobile && "min-h-12",
             )}
             aria-current={active ? "page" : undefined}
@@ -105,7 +107,7 @@ function ThemeToggle() {
 
 function DataStatus() {
   return (
-    <div className="flex items-center gap-2 border border-border bg-background px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground">
+    <div className="flex items-center gap-2 rounded-full border border-border/80 bg-card/85 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground shadow-sm">
       <ShieldCheck className="size-3.5 text-fresh" aria-hidden="true" />
       <span className="hidden sm:inline">2025/26 evidence frozen</span>
       <span className="sm:hidden">Data safe</span>
@@ -117,7 +119,7 @@ function DataStatus() {
 
 function DesktopSidebar() {
   return (
-    <aside className="hidden min-h-dvh w-60 shrink-0 border-r border-border bg-card lg:flex lg:flex-col">
+    <aside className="hidden min-h-dvh w-56 shrink-0 border-r border-border/80 bg-card/80 lg:flex lg:flex-col">
       <div className="flex h-16 items-center border-b border-border px-5">
         <Brand />
       </div>
@@ -130,7 +132,7 @@ function DesktopSidebar() {
       <div className="border-t border-border p-3">
         <Link
           href="/settings"
-          className="flex min-h-10 items-center gap-3 border-l-2 border-transparent px-3 text-sm font-semibold text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground"
+          className="flex min-h-10 items-center gap-3 rounded-lg border-l-2 border-transparent px-3 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:bg-muted hover:text-foreground"
         >
           <Settings className="size-4" aria-hidden="true" />
           Settings

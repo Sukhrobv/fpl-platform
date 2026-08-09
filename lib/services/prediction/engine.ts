@@ -1,7 +1,24 @@
 import { POS_MINUTES_SETTINGS } from "./minutes";
-import { lambdaAttack, lambdaDefense, calculateInvolvementScore, calculateAssistBoost, AttackContext } from "./attack";
-import { calculateSmartBonus, calculatePoissonGoalPoints, calculatePoissonAssistPoints, calculateExpectedDefconPoints } from "./points";
-import { DebugTrace, LeagueAverages, PlayerInput, PredictionResult, TeamInput } from "./types";
+import {
+  lambdaAttack,
+  lambdaDefense,
+  calculateInvolvementScore,
+  calculateAssistBoost,
+  AttackContext,
+} from "./attack";
+import {
+  calculateSmartBonus,
+  calculatePoissonGoalPoints,
+  calculatePoissonAssistPoints,
+  calculateExpectedDefconPoints,
+} from "./points";
+import {
+  DebugTrace,
+  LeagueAverages,
+  PlayerInput,
+  PredictionResult,
+  TeamInput,
+} from "./types";
 import { DefenseFeatures } from "./features";
 
 /** B4/B4.5: Extended context for attack and defense model calculations */
@@ -19,33 +36,81 @@ export class PredictionEngine {
     team: TeamInput,
     opponent: TeamInput,
     leagueAvg: LeagueAverages,
-    context?: EngineContext
+    context?: EngineContext,
   ): PredictionResult {
     const formWeight = Math.min(1, Math.max(0, player.minutes_recent) / 270);
     const blendAlpha = 0.6;
 
-    const xG90 = this.blend(player.xG90_season, player.xG90_recent, blendAlpha, formWeight);
-    const xA90 = this.blend(player.xA90_season, player.xA90_recent, blendAlpha, formWeight);
-    const keyPasses90 = this.blend(player.keyPasses90_season, player.keyPasses90_recent, blendAlpha, formWeight);
+    const xG90 = this.blend(
+      player.xG90_season,
+      player.xG90_recent,
+      blendAlpha,
+      formWeight,
+    );
+    const xA90 = this.blend(
+      player.xA90_season,
+      player.xA90_recent,
+      blendAlpha,
+      formWeight,
+    );
+    const keyPasses90 = this.blend(
+      player.keyPasses90_season,
+      player.keyPasses90_recent,
+      blendAlpha,
+      formWeight,
+    );
     const touchesInBox90 = this.blend(
       player.touchesInBox90_season ?? 0,
       player.touchesInBox90_recent,
       blendAlpha,
-      formWeight
+      formWeight,
     );
 
     const team_xG90 = this.blend(team.xG90_season, team.xG90_recent, 0.5, 1);
     const team_xGA90 = this.blend(team.xGA90_season, team.xGA90_recent, 0.5, 1);
-    const opp_xGA90 = this.blend(opponent.xGA90_season, opponent.xGA90_recent, 0.7, 1);
-    const opp_deep = this.blend(opponent.deep_season, opponent.deep_recent, 0.6, 1);
-    const opp_xG90 = this.blend(opponent.xG90_season, opponent.xG90_recent, 0.5, 1);
+    const opp_xGA90 = this.blend(
+      opponent.xGA90_season,
+      opponent.xGA90_recent,
+      0.7,
+      1,
+    );
+    const opp_deep = this.blend(
+      opponent.deep_season,
+      opponent.deep_recent,
+      0.6,
+      1,
+    );
+    const opp_xG90 = this.blend(
+      opponent.xG90_season,
+      opponent.xG90_recent,
+      0.5,
+      1,
+    );
 
     // B4: Pass attack context to lambdaAttack for trend adjustments
-    const lambda_att = lambdaAttack(team_xG90, opp_xGA90, opp_deep, team.isHome, leagueAvg, context?.attackContext);
-    const lambda_def = lambdaDefense(opp_xG90, team_xGA90, team.deep_season, team.isHome, leagueAvg);
+    const lambda_att = lambdaAttack(
+      team_xG90,
+      opp_xGA90,
+      opp_deep,
+      team.isHome,
+      leagueAvg,
+      context?.attackContext,
+    );
+    const lambda_def = lambdaDefense(
+      opp_xG90,
+      team_xGA90,
+      team.deep_season,
+      team.isHome,
+      leagueAvg,
+    );
 
     const prob_cs = Math.exp(-lambda_def);
-    const win_prob = lambda_att > lambda_def * 1.3 ? 0.65 : lambda_att < lambda_def * 0.7 ? 0.2 : 0.35;
+    const win_prob =
+      lambda_att > lambda_def * 1.3
+        ? 0.65
+        : lambda_att < lambda_def * 0.7
+          ? 0.2
+          : 0.35;
 
     const prob_start = player.start_probability;
     const prob_60 = prob_start * 0.92;
@@ -57,10 +122,6 @@ export class PredictionEngine {
     const expected_minutes = m_fac * 90;
 
     const explosiveness = xG90 > 0.45 ? 1.05 : 1.0; // Fixed: reduced from 1.15
-
-    const team_xG_base = Math.max(0.1, team_xG90);
-    const player_share_xG = xG90 / team_xG_base;
-    const player_share_xA = xA90 / team_xG_base;
 
     // B4: Calculate involvement score for attack centrality
     const involvementScore = calculateInvolvementScore({
@@ -78,11 +139,11 @@ export class PredictionEngine {
       leagueAvgXa90: 0.15,
     });
 
-    // B4: Apply involvement multiplier (high involvement = more reliable)
-    const involvementMultiplier = 1 + involvementScore * 0.05; // Fixed: reduced from 0.15
-
     // Opponent adjustment: how much better/worse opponent is than league average
-    const opp_adjustment = lambda_att > 1.0 ? Math.min(1.15, lambda_att) : Math.max(0.85, lambda_att);
+    const opp_adjustment =
+      lambda_att > 1.0
+        ? Math.min(1.15, lambda_att)
+        : Math.max(0.85, lambda_att);
 
     // xG_hat: expected xG for THIS match = player's xG90 rate * match-adjusted minutes * opponent adjustment
     // Simplified formula: no longer multiplies player_share * team_xG (which just equals xG90)
@@ -99,12 +160,19 @@ export class PredictionEngine {
     const assistPtsResult = calculatePoissonAssistPoints({
       xA: xA_hat,
     });
-    const pts_attack = goalPtsResult.expectedPoints + assistPtsResult.expectedPoints;
+    const pts_attack =
+      goalPtsResult.expectedPoints + assistPtsResult.expectedPoints;
 
-    const cs_pts = player.position === "FORWARD" ? 0 : player.position === "MIDFIELDER" ? 1 : 4;
-    const goals_conceded_penalty = player.position === "DEFENDER" || player.position === "GOALKEEPER" 
-      ? 0.5 * lambda_def * prob_60 
-      : 0;
+    const cs_pts =
+      player.position === "FORWARD"
+        ? 0
+        : player.position === "MIDFIELDER"
+          ? 1
+          : 4;
+    const goals_conceded_penalty =
+      player.position === "DEFENDER" || player.position === "GOALKEEPER"
+        ? 0.5 * lambda_def * prob_60
+        : 0;
 
     const pts_defense = cs_pts * prob_cs * prob_60 - goals_conceded_penalty;
 
@@ -121,7 +189,8 @@ export class PredictionEngine {
         })
       : 0;
 
-    const isKeyPlayer = player.price > 8.0;
+    // FPL stores price in tenths of a million (e.g. 54 = £5.4m).
+    const isKeyPlayer = player.price > 80;
     const pts_bonus = calculateSmartBonus({
       position: player.position,
       xG_hat,
@@ -131,67 +200,70 @@ export class PredictionEngine {
       isKeyPlayer,
     });
 
-    const total_raw = pts_app + pts_attack + pts_defense + pts_defcon + pts_bonus;
+    const total_raw =
+      pts_app + pts_attack + pts_defense + pts_defcon + pts_bonus;
 
     // Build debug trace if enabled
-    const debug: DebugTrace | undefined = context?.enableDebug ? {
-      blends: {
-        xG90: { 
-          season: player.xG90_season, 
-          recent: player.xG90_recent, 
-          result: xG90, 
-          weight: formWeight 
-        },
-        xA90: { 
-          season: player.xA90_season, 
-          recent: player.xA90_recent, 
-          result: xA90, 
-          weight: formWeight 
-        },
-        keyPasses90: { 
-          season: player.keyPasses90_season, 
-          recent: player.keyPasses90_recent, 
-          result: keyPasses90 
-        },
-      },
-      lambdas: {
-        attack: lambda_att,
-        defense: lambda_def,
-      },
-      minutes: {
-        prob_start,
-        prob_60,
-        m_fac,
-        expected_minutes,
-      },
-      attack: {
-        xG_hat,
-        xA_hat,
-        goalPoints: goalPtsResult.expectedPoints,
-        assistPoints: assistPtsResult.expectedPoints,
-        involvementScore,
-        assistBoost,
-        explosiveness,
-        opp_adjustment,
-      },
-      defense: {
-        cs_pts_base: cs_pts,
-        prob_cs,
-        goals_conceded_penalty,
-        result: pts_defense,
-      },
-      defcon: {
-        cbit90,
-        cbirt90,
-        prob_defcon: defconEnabled ? pts_defcon / 2 : 0, // Convert back to probability
-        enabled: defconEnabled,
-      },
-      bonus: {
-        win_prob,
-        isKeyPlayer,
-        result: pts_bonus,
-      },
-    } : undefined;
+    const debug: DebugTrace | undefined = context?.enableDebug
+      ? {
+          blends: {
+            xG90: {
+              season: player.xG90_season,
+              recent: player.xG90_recent,
+              result: xG90,
+              weight: formWeight,
+            },
+            xA90: {
+              season: player.xA90_season,
+              recent: player.xA90_recent,
+              result: xA90,
+              weight: formWeight,
+            },
+            keyPasses90: {
+              season: player.keyPasses90_season,
+              recent: player.keyPasses90_recent,
+              result: keyPasses90,
+            },
+          },
+          lambdas: {
+            attack: lambda_att,
+            defense: lambda_def,
+          },
+          minutes: {
+            prob_start,
+            prob_60,
+            m_fac,
+            expected_minutes,
+          },
+          attack: {
+            xG_hat,
+            xA_hat,
+            goalPoints: goalPtsResult.expectedPoints,
+            assistPoints: assistPtsResult.expectedPoints,
+            involvementScore,
+            assistBoost,
+            explosiveness,
+            opp_adjustment,
+          },
+          defense: {
+            cs_pts_base: cs_pts,
+            prob_cs,
+            goals_conceded_penalty,
+            result: pts_defense,
+          },
+          defcon: {
+            cbit90,
+            cbirt90,
+            prob_defcon: defconEnabled ? pts_defcon / 2 : 0, // Convert back to probability
+            enabled: defconEnabled,
+          },
+          bonus: {
+            win_prob,
+            isKeyPlayer,
+            result: pts_bonus,
+          },
+        }
+      : undefined;
 
     return {
       playerId: player.id,
@@ -210,10 +282,14 @@ export class PredictionEngine {
     };
   }
 
-  private blend(season: number, recent: number | undefined, alpha: number, weight: number): number {
+  private blend(
+    season: number,
+    recent: number | undefined,
+    alpha: number,
+    weight: number,
+  ): number {
     if (recent === undefined) return season;
     const a = alpha * weight;
     return a * recent + (1 - a) * season;
   }
 }
-

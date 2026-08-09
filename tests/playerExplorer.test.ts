@@ -84,3 +84,29 @@ test("forecast confidence is exposed as a non-colour state", () => {
     "high",
   );
 });
+
+test("Player Explorer derives transparent value from the season-scoped forecast", () => {
+  const [player] = mergePlayersWithPredictions(
+    [makePlayer(1)],
+    [
+      {
+        playerId: 1,
+        totalXPts: 6,
+        totalRange: { lower: 4.5, upper: 7.5, label: "INDICATIVE" },
+        history: {},
+        fixtures: {
+          1: { fixture: "TST (H)", opponent: "TST", isHome: true },
+        },
+      },
+    ],
+  );
+
+  assert.deepEqual(player.forecastRange, {
+    lower: 4.5,
+    upper: 7.5,
+    label: "INDICATIVE",
+  });
+  assert.equal(player.costPerSeasonPoint, 4.6);
+  assert.equal(player.costPerForecastPoint, 0.767);
+  assert.equal(player.fixtures[1].fixture, "TST (H)");
+});

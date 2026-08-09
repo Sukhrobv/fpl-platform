@@ -19,7 +19,7 @@
 
 ## 🚨 ТЕКУЩИЙ ВОССТАНОВИТЕЛЬНЫЙ ЭТАП: D0 RELIABLE DATA FOUNDATION
 
-**Статус: D0.6.5 GW1 READINESS ГОТОВ · АКТИВАЦИЯ ОЖИДАЕТ ЯВНОГО РЕШЕНИЯ** | **Критичность: 🔴 P0**
+**Статус: D0.7 OBSERVABILITY В РАБОТЕ · AUDIT ОЖИДАЕТ РЕЗУЛЬТАТОВ GW1 · АКТИВАЦИЯ ВЫКЛЮЧЕНА** | **Критичность: 🔴 P0**
 
 После потери прежнего advanced-потока дальнейшая работа над Prediction Engine заблокирована до восстановления надёжного потока данных.
 
@@ -29,7 +29,7 @@
 
 **Детальный план:** `docs/analytics/data-foundation-roadmap.md`
 
-**Текущая задача:** D0.6.5 readiness-пакет собран и прошёл audit: 2026/27 roster/fixtures соединены с versioned priors 2025/26, availability и confidence для каждого игрока определены, а current form не добавлена. Активация и публикация остаются выключенными до отдельного явного решения пользователя. Детальный план: `docs/analytics/data-foundation-roadmap.md`. UI0.6 остаётся завершённым.
+**Текущая задача:** D0.7: internal GW1 preview v5 завершён; coverage dashboard отложен до явного решения пользователя. `gw1-prior-v6` построен из полного валидированного PulseLive batch 2025/26, включая `total_clearance` (488 строк с Opta ID). Snapshot 40 (`gw1-preseason-v5`) для 555 игроков прозрачно раскладывает ожидание на appearance, attack, clean sheet, goals-conceded penalty и DEFCON. В карточке игрока добавлен обратимый preseason override с обязательной причиной и опциональным источником: он может только ограничить доступность, вероятность старта или минуты; `CONFIRMED_STARTER` остаётся только доказательством и не повышает xPts. Clearances не удваиваются внутри CBI: это отдельный умеренный сигнал устойчивости роли защитника при shrinkage его DEFCON rate. Командные attack/defence priors, clean sheet и conceded penalty ограничены данными прошлого сезона и не считаются калиброванными. `publicationReady=false`, сезон не активирован; bonus и saves исключены. Аудит остаётся заблокирован на `0/10` завершённых матчей GW1, поэтому калибровка и любая публикация запрещены. Детальный план: `docs/analytics/data-foundation-roadmap.md`.
 
 **Запрет перехода:** не возвращаться к Advanced-этапам, пока D0 Definition of Done не выполнен и пользователь явно не разрешил переход.
 

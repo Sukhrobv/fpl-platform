@@ -1,0 +1,3 @@
+ALTER TABLE "external_player_match_stats"
+ADD COLUMN "goals" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "assists" INTEGER NOT NULL DEFAULT 0;

@@ -92,6 +92,7 @@ export const PULSELIVE_METRICS = [
   "total_att_assist",
   "carries",
   "progressive_carries",
+  "total_clearance",
   "mins_played",
 ] as const;
 

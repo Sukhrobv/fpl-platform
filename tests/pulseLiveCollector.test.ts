@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   PulseLiveCollector,
@@ -8,6 +9,12 @@ import {
 const headers = { "Content-Type": "application/json" };
 const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers });
+const sourceContracts = JSON.parse(
+  readFileSync(
+    new URL("./fixtures/source-contracts.json", import.meta.url),
+    "utf8",
+  ),
+) as { pulseLiveRankedTouches: unknown };
 
 const player = (id: number) => ({
   id,
@@ -97,6 +104,20 @@ test("PulseLiveCollector validates ranked metric identity", async () => {
     (error: unknown) =>
       error instanceof PulseLiveCollectorError && /entity/i.test(error.message),
   );
+});
+
+test("PulseLiveCollector accepts the saved ranked-touches source contract", async () => {
+  const fetchStub: typeof fetch = async () =>
+    json(sourceContracts.pulseLiveRankedTouches);
+  const collector = new PulseLiveCollector(
+    { minRequestIntervalMs: 0, maxRetries: 0 },
+    { fetch: fetchStub },
+  );
+
+  const result = await collector.getAllRankedStats(841, "touches");
+  assert.equal(result.content.length, 2);
+  assert.equal(result.content[0].owner.altIds?.opta, "p101");
+  assert.equal(result.content[0].value, 84);
 });
 
 test("PulseLiveCollector parses individual player totals", async () => {

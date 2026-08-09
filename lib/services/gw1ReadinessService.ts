@@ -46,6 +46,7 @@ interface Gw1PlayerProfile {
   seasonPlayerId: number;
   fplId: number;
   playerId: number;
+  playerName: string;
   team: string;
   position: string;
   price: number;
@@ -69,6 +70,12 @@ interface Gw1PlayerProfile {
     keyPasses90: number | null;
     carries90: number | null;
     defconActions90: number | null;
+    clearances90: number | null;
+  };
+  priorUsage: {
+    minutes: number;
+    appearances: number;
+    starts: number | null;
   };
 }
 
@@ -172,7 +179,10 @@ export class Gw1ReadinessService {
       }),
       this.prisma.seasonPlayer.findMany({
         where: { seasonId: targetSeason.id, active: true },
-        include: { seasonTeam: { select: { teamId: true, shortName: true } } },
+        include: {
+          player: { select: { webName: true } },
+          seasonTeam: { select: { teamId: true, shortName: true } },
+        },
         orderBy: { fplId: "asc" },
       }),
       this.prisma.match.findMany({
@@ -253,6 +263,7 @@ export class Gw1ReadinessService {
         seasonPlayerId: player.id,
         fplId: player.fplId,
         playerId: player.playerId,
+        playerName: player.player.webName,
         team: player.seasonTeam.shortName,
         position: player.position,
         price: player.nowCost,
@@ -277,6 +288,12 @@ export class Gw1ReadinessService {
           keyPasses90: prior?.keyPasses90 ?? null,
           carries90: prior?.carries90 ?? null,
           defconActions90: prior?.defconActions90 ?? null,
+          clearances90: prior?.clearances90 ?? null,
+        },
+        priorUsage: {
+          minutes: prior?.minutes ?? 0,
+          appearances: prior?.appearances ?? 0,
+          starts: prior?.starts ?? null,
         },
       };
     });
@@ -313,7 +330,7 @@ export class Gw1ReadinessService {
         Record<string, number>
       >((counts, reason) => ({ ...counts, [reason]: (counts[reason] ?? 0) + 1 }), {});
     const payload = {
-      schemaVersion: 1,
+      schemaVersion: 4,
       targetSeason: targetSeason.code,
       priorVersion,
       publicationReady: false,
@@ -354,7 +371,7 @@ export class Gw1ReadinessService {
                 sourceSeasonId: priorVersion,
                 gameweek: 1,
                 batchId: randomUUID(),
-                schemaVersion: 1,
+                schemaVersion: 4,
                 fetchedAt: new Date(),
                 checksum,
                 valid: ready,

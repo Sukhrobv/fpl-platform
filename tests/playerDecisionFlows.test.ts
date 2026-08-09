@@ -28,7 +28,12 @@ function player(
     chanceOfPlaying: null,
     team: { shortName: "TST", name: "Test" },
     forecastTotal,
+    forecastRange: null,
+    costPerSeasonPoint: (50 + id) / 10 / 100,
+    costPerForecastPoint:
+      forecastTotal == null ? null : (50 + id) / 10 / forecastTotal,
     forecasts: {},
+    fixtures: {},
   };
 }
 

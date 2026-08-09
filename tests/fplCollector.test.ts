@@ -1,28 +1,20 @@
 ﻿process.env.SKIP_ENV_VALIDATION = "true";
-process.env.DATABASE_URL = process.env.DATABASE_URL ?? "postgres://localhost:5432/testdb";
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL ?? "postgres://localhost:5432/testdb";
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const collectorModulePromise = import("../lib/collectors/fplCollector");
 
 const headers = { "Content-Type": "application/json" };
 
-const bootstrapPayload = {
-  events: [{ id: 1, name: "Gameweek 1", is_current: true }],
-  teams: [{ id: 1, name: "Arsenal", short_name: "ARS" }],
-  elements: [
-    {
-      id: 1,
-      web_name: "Player One",
-      team: 1,
-      element_type: 2,
-      now_cost: 50,
-      status: "a",
-    },
-  ],
-  element_types: [{ id: 2, singular_name: "Defender", plural_name: "Defenders" }],
-  element_stats: [{ name: "goals_scored", label: "Goals" }],
-};
+const sourceContracts = JSON.parse(
+  readFileSync(
+    new URL("./fixtures/source-contracts.json", import.meta.url),
+    "utf8",
+  ),
+) as { fplBootstrap: unknown };
 
 const playerSummaryPayload = {
   fixtures: [
@@ -122,12 +114,12 @@ const noopLogger = {
 const toJsonResponse = (value: unknown, init?: ResponseInit) =>
   new Response(JSON.stringify(value), { ...init, headers });
 
-test("FPLCollector retries transient failures and succeeds", async () => {
+test("FPLCollector retries transient failures and accepts the saved bootstrap contract", async () => {
   const { FPLCollector } = await collectorModulePromise;
   const responses: Response[] = [
     new Response("fail", { status: 503, statusText: "Service Unavailable" }),
     new Response("fail", { status: 500, statusText: "Server Error" }),
-    toJsonResponse(bootstrapPayload, { status: 200 }),
+    toJsonResponse(sourceContracts.fplBootstrap, { status: 200 }),
   ];
   let callCount = 0;
   const warnings: unknown[] = [];
@@ -140,7 +132,13 @@ test("FPLCollector retries transient failures and succeeds", async () => {
     return next;
   };
   const collector = new FPLCollector(
-    { baseUrl: "https://fantasy.premierleague.com/api", requestsPerMinute: 0, maxRetries: 4, retryBaseDelayMs: 5, retryJitterMs: 0 },
+    {
+      baseUrl: "https://fantasy.premierleague.com/api",
+      requestsPerMinute: 0,
+      maxRetries: 4,
+      retryBaseDelayMs: 5,
+      retryJitterMs: 0,
+    },
     {
       fetch: fetchStub,
       logger: {
@@ -162,19 +160,21 @@ test("FPLCollector retries transient failures and succeeds", async () => {
 
 test("FPLCollector throws when payload fails validation", async () => {
   const { FPLCollector, FPLCollectorError } = await collectorModulePromise;
-  const fetchStub: typeof fetch = async () => toJsonResponse({ invalid: true }, { status: 200 });
+  const fetchStub: typeof fetch = async () =>
+    toJsonResponse({ invalid: true }, { status: 200 });
   const collector = new FPLCollector(
-    { baseUrl: "https://fantasy.premierleague.com/api", requestsPerMinute: 0, maxRetries: 0 },
+    {
+      baseUrl: "https://fantasy.premierleague.com/api",
+      requestsPerMinute: 0,
+      maxRetries: 0,
+    },
     { fetch: fetchStub, logger: noopLogger },
   );
-  await assert.rejects(
-    collector.getBootstrap(),
-    (error: unknown) => {
-      assert.ok(error instanceof FPLCollectorError);
-      assert.match(error.message, /validate/i);
-      return true;
-    },
-  );
+  await assert.rejects(collector.getBootstrap(), (error: unknown) => {
+    assert.ok(error instanceof FPLCollectorError);
+    assert.match(error.message, /validate/i);
+    return true;
+  });
 });
 
 test("FPLCollector fetches summaries for multiple players", async () => {
@@ -190,7 +190,11 @@ test("FPLCollector fetches summaries for multiple players", async () => {
     throw new Error(`Unexpected URL ${url.pathname}`);
   };
   const collector = new FPLCollector(
-    { baseUrl: "https://fantasy.premierleague.com/api", requestsPerMinute: 0, maxRetries: 0 },
+    {
+      baseUrl: "https://fantasy.premierleague.com/api",
+      requestsPerMinute: 0,
+      maxRetries: 0,
+    },
     { fetch: fetchStub, logger: noopLogger },
   );
   const summaries = await collector.getPlayerSummaries([1, 2]);
@@ -198,4 +202,3 @@ test("FPLCollector fetches summaries for multiple players", async () => {
   assert.equal(summaries[1].history.length, 1);
   assert.equal(summaries[2].fixtures[0].id, 1);
 });
-

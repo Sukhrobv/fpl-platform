@@ -1,6 +1,7 @@
 ﻿import { connectDB, disconnectDB, prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { syncFplData, type SyncOptions } from "@/lib/services/fplSync";
+import { RollingPredictionService } from "@/lib/services/rollingPredictionService";
 
 interface CliOptions extends SyncOptions {
   help?: boolean;
@@ -86,6 +87,18 @@ async function main(): Promise<void> {
     );
     if (summary.rolloverReport) {
       logger.info(`Rollover report: ${JSON.stringify(summary.rolloverReport)}`);
+    }
+    try {
+      const rolling = await new RollingPredictionService(prisma).build({
+        targetSeasonCode: summary.season,
+      });
+      logger.info(
+        `Rolling preview ${rolling.snapshotId} | GW ${rolling.horizonGameweeks.join(",")} | through GW ${rolling.statsThroughGameweek} | ${rolling.reused ? "reused" : "rebuilt"}`,
+      );
+    } catch (rollingError) {
+      logger.warn(
+        `FPL sync completed, but rolling preview was not rebuilt: ${rollingError instanceof Error ? rollingError.message : String(rollingError)}`,
+      );
     }
   } catch (error) {
     logger.error("FPL sync failed", error);

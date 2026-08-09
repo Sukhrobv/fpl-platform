@@ -17,7 +17,7 @@ async function main() {
   const version = readArg("version") ?? DEFAULT_PRIOR_VERSION;
   if (!sourceSeasonCode || !targetSeasonCode) {
     throw new Error(
-      "Usage: tsx scripts/build-season-priors.ts --source=2025/26 --target=2026/27 [--version=gw1-prior-v5]",
+      "Usage: tsx scripts/build-season-priors.ts --source=2025/26 --target=2026/27 [--version=gw1-prior-v6]",
     );
   }
   const result = await new PlayerSeasonPriorService(prisma).build({

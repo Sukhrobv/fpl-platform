@@ -23,6 +23,7 @@ model Season {
   matches             Match[]
   fplStats            FPLPlayerStats[]
   externalPlayerStats ExternalPlayerStats[]
+  externalPlayerMatchStats ExternalPlayerMatchStats[]
   externalTeamStats   ExternalTeamStats[]
   fantasyTeams        FantasyTeam[]
   syncLogs            SyncLog[]
@@ -31,6 +32,8 @@ model Season {
   evidenceFreezes     SeasonEvidenceFreeze[]
   playerPriors        PlayerSeasonPrior[]
   sourceBindings      SeasonSourceBinding[]
+  preseasonOverrides  PreseasonOverride[]
+  preseasonSquadDrafts PreseasonSquadDraft[]
 
   @@index([status])
   @@map("seasons")
@@ -88,6 +91,7 @@ model SeasonPlayer {
   externalStats   ExternalPlayerStats[]
   mappings        SeasonPlayerMapping[]
   priors          PlayerSeasonPrior[]
+  preseasonOverride PreseasonOverride?
 
   @@unique([seasonId, fplId])
   @@unique([seasonId, playerId])
@@ -167,6 +171,7 @@ model Player {
   updatedAt       DateTime              @updatedAt
   lastSyncedAt    DateTime?
   externalStats   ExternalPlayerStats[]
+  externalMatchStats ExternalPlayerMatchStats[]
   fantasyPicks    FantasyTeamPick[]
   fplStats        FPLPlayerStats[]
   playerMappings  PlayerMapping[]
@@ -319,6 +324,32 @@ model ExternalPlayerStats {
   @@index([gameweek])
   @@index([source])
   @@map("external_player_stats")
+}
+
+model ExternalPlayerMatchStats {
+  id             Int      @id @default(autoincrement())
+  seasonId       Int
+  playerId       Int
+  source         String
+  sourceMatchId  String
+  matchDate      DateTime
+  opponentTeamId Int?
+  wasHome        Boolean
+  minutes        Int
+  goals          Int      @default(0)
+  assists        Int      @default(0)
+  xG             Float
+  xA             Float
+  rawData        Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  player         Player   @relation(fields: [playerId], references: [id])
+  season         Season   @relation(fields: [seasonId], references: [id])
+
+  @@unique([playerId, source, sourceMatchId])
+  @@index([seasonId, playerId, opponentTeamId])
+  @@index([source, matchDate])
+  @@map("external_player_match_stats")
 }
 
 model ExternalTeamStats {
@@ -568,12 +599,14 @@ model PlayerSeasonPrior {
   rawKeyPasses90       Float?
   rawCarries90         Float?
   rawDefconActions90   Float?
+  rawClearances90      Float?
   xG90                 Float?
   xA90                 Float?
   touches90            Float?
   keyPasses90          Float?
   carries90            Float?
   defconActions90      Float?
+  clearances90         Float?
   sampleWeight         Float
   confidenceScore      Float
   confidence           PriorConfidence
@@ -590,6 +623,45 @@ model PlayerSeasonPrior {
   @@index([targetSeasonCode, confidence])
   @@index([sourcePosition])
   @@map("player_season_priors")
+}
+
+model PreseasonOverride {
+  id                     Int                   @id @default(autoincrement())
+  seasonId               Int
+  seasonPlayerId         Int                   @unique
+  kind                   PreseasonOverrideKind
+  availabilityCap        Int?
+  startProbabilityCap    Float?
+  expectedMinutesCap     Int?
+  appliesThroughGameweek Int                   @default(1)
+  note                   String
+  sourceUrl              String?
+  active                 Boolean               @default(true)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  season                 Season                @relation(fields: [seasonId], references: [id])
+  seasonPlayer           SeasonPlayer          @relation(fields: [seasonPlayerId], references: [id])
+
+  @@index([seasonId, active, appliesThroughGameweek])
+  @@map("preseason_overrides")
+}
+
+model PreseasonSquadDraft {
+  id                Int      @id @default(autoincrement())
+  seasonId          Int
+  name              String
+  playerIds         Json
+  starterIds        Json
+  captainId         Int?
+  viceCaptainId     Int?
+  bank              Int      @default(0)
+  previewSnapshotId Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  season            Season   @relation(fields: [seasonId], references: [id])
+
+  @@index([seasonId, updatedAt])
+  @@map("preseason_squad_drafts")
 }
 
 enum Position {
@@ -620,6 +692,14 @@ enum PriorConfidence {
   LOW
   MEDIUM
   HIGH
+}
+
+enum PreseasonOverrideKind {
+  LATE_RETURN
+  MANAGED_MINUTES
+  UNAVAILABLE
+  SELECTION_RISK
+  CONFIRMED_STARTER
 }
 
 enum MappingMethod {

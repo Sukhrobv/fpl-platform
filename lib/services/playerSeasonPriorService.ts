@@ -9,10 +9,10 @@ import {
 import { z } from "zod";
 import { PULSELIVE_METRICS } from "@/lib/collectors/pulseLiveCollector";
 
-export const DEFAULT_PRIOR_VERSION = "gw1-prior-v5";
+export const DEFAULT_PRIOR_VERSION = "gw1-prior-v6";
 
 export const DEFAULT_PRIOR_CONFIG = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   shrinkageMinutes: 900,
   highConfidenceMinutes: 1800,
   positionBaselineWeight: 0.75,
@@ -93,7 +93,8 @@ type MetricName =
   | "touches90"
   | "keyPasses90"
   | "carries90"
-  | "defconActions90";
+  | "defconActions90"
+  | "clearances90";
 
 interface MetricObservation {
   raw: number | null;
@@ -182,12 +183,39 @@ export function shrinkRate(
   rawRate: number | null,
   baseline: number | null,
   minutes: number,
-  priorMinutes = DEFAULT_PRIOR_CONFIG.shrinkageMinutes,
+  priorMinutes: number = DEFAULT_PRIOR_CONFIG.shrinkageMinutes,
 ): number | null {
   if (rawRate == null) return null;
   if (baseline == null || minutes <= 0) return rawRate;
   const weight = minutes / (minutes + priorMinutes);
   return rawRate * weight + baseline * (1 - weight);
+}
+
+/**
+ * Clearances are already part of FPL's CBI total, so they must never be added
+ * a second time to expected DEFCON actions. For defenders we instead use a
+ * separately observed clearance rate as a modest role-continuity signal: a
+ * regular clearance-heavy centre-back's own action sample is trusted slightly
+ * more, while a low-clearance profile is shrunk slightly more to its baseline.
+ */
+export function defconShrinkageMinutes(input: {
+  position: Position;
+  rawClearances90: number | null;
+  clearanceBaseline90: number | null;
+}): number {
+  if (
+    input.position !== "DEFENDER" ||
+    input.rawClearances90 == null ||
+    input.clearanceBaseline90 == null ||
+    input.clearanceBaseline90 <= 0
+  ) {
+    return DEFAULT_PRIOR_CONFIG.shrinkageMinutes;
+  }
+  const support = Math.max(
+    0.5,
+    Math.min(1.5, input.rawClearances90 / input.clearanceBaseline90),
+  );
+  return DEFAULT_PRIOR_CONFIG.shrinkageMinutes * (1 - 0.25 * (support - 1));
 }
 
 export function blendPriorWithCurrent(
@@ -347,17 +375,17 @@ function candidateConfidence(candidate: CandidatePrior): {
   confidence: PriorConfidence;
   reasons: string[];
 } {
-  const requiredMetrics: MetricName[] =
-    candidate.position === "GOALKEEPER"
-      ? ["xG90", "xA90", "touches90", "keyPasses90", "carries90"]
-      : [
-          "xG90",
-          "xA90",
-          "touches90",
-          "keyPasses90",
-          "carries90",
-          "defconActions90",
-        ];
+  const requiredMetrics: MetricName[] = [
+    "xG90",
+    "xA90",
+    "touches90",
+    "keyPasses90",
+    "carries90",
+    ...(candidate.position === "GOALKEEPER"
+      ? []
+      : ["defconActions90" as const]),
+    ...(candidate.position === "DEFENDER" ? ["clearances90" as const] : []),
+  ];
   const present = requiredMetrics.filter(
     (metric) => candidate.metrics[metric].raw != null,
   );
@@ -393,6 +421,7 @@ function buildQuality(
     "keyPasses90",
     "carries90",
     "defconActions90",
+    "clearances90",
   ];
   const eligible = Object.fromEntries(
     metrics.map((metric) => [
@@ -400,6 +429,7 @@ function buildQuality(
       rows.filter(
         (row) =>
           row.minutes > 0 &&
+          (metric !== "clearances90" || row.position === "DEFENDER") &&
           (![
             "touches90",
             "keyPasses90",
@@ -416,6 +446,7 @@ function buildQuality(
       rows.filter(
         (row) =>
           row.minutes > 0 &&
+          (metric !== "clearances90" || row.position === "DEFENDER") &&
           (row.position !== "GOALKEEPER" ||
             ![
               "touches90",
@@ -509,6 +540,7 @@ export class PlayerSeasonPriorService {
           keyPasses90: prior.keyPasses90,
           carries90: prior.carries90,
           defconActions90: prior.defconActions90,
+          clearances90: prior.clearances90,
         },
         confidenceScore: adjusted.score,
         confidence: adjusted.confidence,
@@ -533,6 +565,7 @@ export class PlayerSeasonPriorService {
         keyPasses90: true,
         carries90: true,
         defconActions90: true,
+        clearances90: true,
       },
     });
     const adjusted = applyUncertaintyFlags(0.7, flags);
@@ -548,6 +581,7 @@ export class PlayerSeasonPriorService {
         keyPasses90: population._avg.keyPasses90,
         carries90: population._avg.carries90,
         defconActions90: population._avg.defconActions90,
+        clearances90: population._avg.clearances90,
       },
       confidenceScore: adjusted.score,
       confidence: adjusted.confidence,
@@ -684,6 +718,7 @@ export class PlayerSeasonPriorService {
       const carries = rankedCarries ?? supplement?.values.carries ?? null;
       const carriesMinutes =
         rankedCarries != null ? pulseMinutes : (supplement?.minutes ?? 0);
+      const rankedClearances = pulseMetric("stat:total_clearance");
       const metrics: Record<MetricName, MetricObservation> = {
         xG90: { raw: per90OrNull(xG, fplMinutes), minutes: fplMinutes },
         xA90: { raw: per90OrNull(xA, fplMinutes), minutes: fplMinutes },
@@ -705,6 +740,13 @@ export class PlayerSeasonPriorService {
               ? null
               : per90OrNull(defconTotal, defconMinutes),
           minutes: defconMinutes,
+        },
+        clearances90: {
+          raw:
+            registration.position === "GOALKEEPER"
+              ? null
+              : per90OrNull(rankedClearances, pulseMinutes),
+          minutes: rankedClearances != null ? pulseMinutes : 0,
         },
       };
       return {
@@ -728,6 +770,7 @@ export class PlayerSeasonPriorService {
           touchesMinutes,
           keyPassesMinutes,
           carriesMinutes,
+          clearancesMinutes: rankedClearances != null ? pulseMinutes : 0,
           touchesSource:
             rankedTouches != null
               ? "pulselive-ranked"
@@ -749,7 +792,15 @@ export class PlayerSeasonPriorService {
                 ? "pulselive-individual"
                 : null,
           defconMinutes,
-          totals: { xG, xA, touches, keyPasses, carries, defconTotal },
+          totals: {
+            xG,
+            xA,
+            touches,
+            keyPasses,
+            carries,
+            clearances: rankedClearances,
+            defconTotal,
+          },
         } as Prisma.InputJsonValue,
       };
     });
@@ -786,12 +837,26 @@ export class PlayerSeasonPriorService {
       const shrunk = Object.fromEntries(
         (Object.keys(candidate.metrics) as MetricName[]).map((metric) => {
           const observation = candidate.metrics[metric];
+          const baseline = hierarchicalBaseline(candidates, candidate, metric);
+          const priorMinutes =
+            metric === "defconActions90"
+              ? defconShrinkageMinutes({
+                  position: candidate.position,
+                  rawClearances90: candidate.metrics.clearances90.raw,
+                  clearanceBaseline90: hierarchicalBaseline(
+                    candidates,
+                    candidate,
+                    "clearances90",
+                  ),
+                })
+              : DEFAULT_PRIOR_CONFIG.shrinkageMinutes;
           return [
             metric,
             shrinkRate(
               observation.raw,
-              hierarchicalBaseline(candidates, candidate, metric),
+              baseline,
               observation.minutes,
+              priorMinutes,
             ),
           ];
         }),
@@ -905,12 +970,14 @@ export class PlayerSeasonPriorService {
             rawKeyPasses90: row.raw.keyPasses90,
             rawCarries90: row.raw.carries90,
             rawDefconActions90: row.raw.defconActions90,
+            rawClearances90: row.raw.clearances90,
             xG90: row.shrunk.xG90,
             xA90: row.shrunk.xA90,
             touches90: row.shrunk.touches90,
             keyPasses90: row.shrunk.keyPasses90,
             carries90: row.shrunk.carries90,
             defconActions90: row.shrunk.defconActions90,
+            clearances90: row.shrunk.clearances90,
             sampleWeight: row.sampleWeight,
             confidenceScore: row.confidenceScore,
             confidence: row.confidence,

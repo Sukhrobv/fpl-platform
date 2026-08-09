@@ -1,0 +1,53 @@
+{
+  "fplBootstrap": {
+    "events": [{ "id": 1, "name": "Gameweek 1", "is_current": true }],
+    "teams": [{ "id": 1, "name": "Arsenal", "short_name": "ARS" }],
+    "elements": [
+      {
+        "id": 1,
+        "web_name": "Player One",
+        "team": 1,
+        "element_type": 2,
+        "now_cost": 50,
+        "status": "a",
+        "opta_code": "p12345"
+      }
+    ],
+    "element_types": [
+      { "id": 2, "singular_name": "Defender", "plural_name": "Defenders" }
+    ],
+    "element_stats": [{ "name": "goals_scored", "label": "Goals" }]
+  },
+  "pulseLiveRankedTouches": {
+    "entity": "touches",
+    "stats": {
+      "pageInfo": { "page": 0, "numPages": 1, "pageSize": 20, "numEntries": 2 },
+      "content": [
+        {
+          "owner": {
+            "id": 101,
+            "playerId": 1101,
+            "name": { "display": "Example Midfielder" },
+            "altIds": { "opta": "p101" },
+            "info": { "position": "M" }
+          },
+          "rank": 1,
+          "name": "touches",
+          "value": 84
+        },
+        {
+          "owner": {
+            "id": 102,
+            "playerId": 1102,
+            "name": { "display": "Example Defender" },
+            "altIds": { "opta": "p102" },
+            "info": { "position": "D" }
+          },
+          "rank": 2,
+          "name": "touches",
+          "value": 70
+        }
+      ]
+    }
+  }
+}

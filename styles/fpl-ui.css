@@ -3,29 +3,29 @@
 .fpl-ui {
   color-scheme: light;
 
-  --background: oklch(0.973 0.012 83);
-  --foreground: oklch(0.205 0.014 42);
-  --card: oklch(0.992 0.006 83);
+  --background: oklch(0.975 0.014 82);
+  --foreground: oklch(0.245 0.018 38);
+  --card: oklch(0.993 0.007 82);
   --card-foreground: var(--foreground);
-  --popover: oklch(0.995 0.004 83);
+  --popover: oklch(0.998 0.004 82);
   --popover-foreground: var(--foreground);
-  --primary: oklch(0.405 0.12 24);
+  --primary: oklch(0.45 0.09 348);
   --primary-foreground: oklch(0.985 0.008 83);
-  --secondary: oklch(0.925 0.018 78);
-  --secondary-foreground: oklch(0.26 0.02 42);
-  --muted: oklch(0.941 0.012 78);
-  --muted-foreground: oklch(0.48 0.018 48);
-  --accent: oklch(0.79 0.135 76);
-  --accent-foreground: oklch(0.235 0.03 53);
-  --destructive: oklch(0.55 0.19 28);
-  --border: oklch(0.84 0.018 72);
-  --input: oklch(0.84 0.018 72);
-  --ring: oklch(0.52 0.105 24);
-  --chart-1: oklch(0.405 0.12 24);
-  --chart-2: oklch(0.67 0.125 76);
-  --chart-3: oklch(0.47 0.12 323);
-  --chart-4: oklch(0.5 0.1 128);
-  --chart-5: oklch(0.56 0.17 30);
+  --secondary: oklch(0.94 0.017 78);
+  --secondary-foreground: oklch(0.3 0.024 38);
+  --muted: oklch(0.952 0.011 78);
+  --muted-foreground: oklch(0.52 0.018 47);
+  --accent: oklch(0.82 0.095 72);
+  --accent-foreground: oklch(0.32 0.035 52);
+  --destructive: oklch(0.58 0.145 28);
+  --border: oklch(0.875 0.015 76);
+  --input: oklch(0.87 0.015 76);
+  --ring: oklch(0.55 0.1 348);
+  --chart-1: oklch(0.45 0.09 348);
+  --chart-2: oklch(0.67 0.1 72);
+  --chart-3: oklch(0.52 0.08 300);
+  --chart-4: oklch(0.53 0.07 145);
+  --chart-5: oklch(0.6 0.13 28);
   --sidebar: var(--card);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
@@ -35,16 +35,16 @@
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 
-  --fact: oklch(0.34 0.025 45);
-  --forecast: oklch(0.47 0.12 323);
-  --uncertainty: oklch(0.67 0.125 76);
-  --risk: oklch(0.56 0.17 30);
-  --positive-delta: oklch(0.5 0.1 128);
-  --negative-delta: oklch(0.56 0.17 30);
-  --fresh: oklch(0.5 0.1 128);
-  --stale: oklch(0.62 0.11 76);
+  --fact: oklch(0.36 0.024 42);
+  --forecast: oklch(0.5 0.1 338);
+  --uncertainty: oklch(0.66 0.1 72);
+  --risk: oklch(0.59 0.13 28);
+  --positive-delta: oklch(0.52 0.07 145);
+  --negative-delta: oklch(0.59 0.13 28);
+  --fresh: oklch(0.52 0.07 145);
+  --stale: oklch(0.62 0.09 72);
 
-  --radius: 0.25rem;
+  --radius: 0.8rem;
   --fpl-row-height: 2.75rem;
   --fpl-control-height: 2.25rem;
   --fpl-motion-fast: 120ms;
@@ -92,7 +92,13 @@
 
 .fpl-ui {
   min-height: 100%;
-  background: var(--background);
+  background:
+    radial-gradient(
+      circle at 94% 0%,
+      oklch(0.96 0.025 56 / 0.65),
+      transparent 27rem
+    ),
+    var(--background);
   color: var(--foreground);
 }
 

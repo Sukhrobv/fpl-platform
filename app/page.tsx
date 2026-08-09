@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   CalendarClock,
   ChartNoAxesCombined,
+  ClipboardPenLine,
   Database,
   ShieldCheck,
   Users,
@@ -43,7 +44,7 @@ export default function HomePage() {
       </section>
 
       <section
-        className="grid border-b border-border md:grid-cols-3"
+        className="grid border-b border-border md:grid-cols-2 xl:grid-cols-4"
         aria-label="Workspace shortcuts"
       >
         {[
@@ -60,6 +61,13 @@ export default function HomePage() {
             title: "Explore players",
             body: "Filter and compare the forecast pool across upcoming gameweeks.",
             icon: ChartNoAxesCombined,
+          },
+          {
+            href: "/gw1-squad",
+            eyebrow: "GW1 draft",
+            title: "Build a starting squad",
+            body: "Compare potential, reliability and squad resilience before the first deadline.",
+            icon: ClipboardPenLine,
           },
           {
             href: "/chat",

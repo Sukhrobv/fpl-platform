@@ -21,17 +21,24 @@ export function PlayerIdentity({
   player: ExplorerPlayer;
   compact?: boolean;
 }) {
+  const positionTone = {
+    GOALKEEPER: "bg-[#dbe9dd] text-[#355842]",
+    DEFENDER: "bg-[#dfe7ed] text-[#43596a]",
+    MIDFIELDER: "bg-[#ede0eb] text-[#70476c]",
+    FORWARD: "bg-[#f3e0d6] text-[#8b513d]",
+  } as const;
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <div
+      <span
         className={cn(
-          "grid shrink-0 place-items-center border border-foreground bg-foreground font-black text-background",
-          compact ? "size-8 text-[10px]" : "size-11 text-xs",
+          "inline-flex shrink-0 items-center justify-center rounded-full px-2 font-bold tracking-[0.04em]",
+          positionTone[player.position],
+          compact ? "h-6 min-w-9 text-[9px]" : "h-7 min-w-11 text-[10px]",
         )}
         aria-hidden="true"
       >
         {positionLabel[player.position]}
-      </div>
+      </span>
       <div className="min-w-0">
         <p
           className={cn(
@@ -41,11 +48,80 @@ export function PlayerIdentity({
         >
           {player.webName}
         </p>
-        <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-          {player.team.name} · {availabilityLabel(player)}
+        <p className="mt-0.5 flex items-center gap-1.5 truncate text-[10px] text-muted-foreground">
+          <TeamMark shortName={player.team.shortName} name={player.team.name} />
+          <span className="truncate">
+            {player.team.name} · {availabilityLabel(player)}
+          </span>
         </p>
       </div>
     </div>
+  );
+}
+
+const crestCodes: Record<string, number> = {
+  ARS: 3,
+  AVL: 7,
+  BHA: 36,
+  BOU: 91,
+  BRE: 94,
+  BUR: 90,
+  CHE: 8,
+  CRY: 31,
+  EVE: 11,
+  FUL: 54,
+  IPS: 40,
+  LEE: 2,
+  LEI: 13,
+  LIV: 14,
+  LUT: 102,
+  MCI: 43,
+  MUN: 1,
+  NEW: 4,
+  NFO: 17,
+  NOR: 45,
+  SHU: 18,
+  SOU: 20,
+  SUN: 56,
+  TOT: 6,
+  WAT: 57,
+  WHU: 21,
+  WOL: 39,
+};
+
+export function TeamMark({
+  shortName,
+  name,
+  size = "sm",
+}: {
+  shortName: string;
+  name: string;
+  size?: "sm" | "md";
+}) {
+  const crestCode = crestCodes[shortName.toUpperCase()];
+  return (
+    <span
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-[7px] font-black tracking-tighter text-muted-foreground",
+        size === "sm" ? "size-3.5" : "size-6",
+      )}
+      title={name}
+      aria-label={name}
+    >
+      <span aria-hidden="true">{shortName.slice(0, 1)}</span>
+      {crestCode ? (
+        // Official Premier League badge asset; the letter remains as a fallback.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`https://resources.premierleague.com/premierleague/badges/50/t${crestCode}.png`}
+          alt=""
+          className="absolute inset-0 size-full object-contain"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+      ) : null}
+    </span>
   );
 }
 

@@ -144,3 +144,44 @@ test("UI0.6 replaces legacy chat and settings with semantic workspaces", () => {
     /(?:bg|text|border)-(?:slate|emerald|teal)-/,
   );
 });
+
+test("GW1 Squad Builder exposes only the labelled internal preseason preview", () => {
+  const builder = readFileSync(
+    `${root}/components/gw1-squad/Gw1SquadBuilder.tsx`,
+    "utf8",
+  );
+  const route = readFileSync(
+    `${root}/app/api/preseason-squad/route.ts`,
+    "utf8",
+  );
+  const shell = readFileSync(`${root}/components/layout/AppShell.tsx`, "utf8");
+
+  assert.match(builder, /assessPreseasonSquad/);
+  assert.match(builder, /Internal preview/);
+  assert.match(builder, /does not submit or change an FPL\s+team/);
+  assert.match(builder, /15 fixed FPL slots/);
+  assert.match(builder, /Improve this draft/);
+  assert.match(builder, /buildBalancedPreseasonSquad/);
+  assert.match(builder, /Auto-build balanced squad/);
+  assert.match(builder, /whole-squad solution/);
+  assert.match(builder, /flex w-full justify-center gap-3/);
+  assert.match(builder, /PITCH_GROUPS/);
+  assert.match(builder, /kitTone/);
+  assert.match(builder, /TeamMark/);
+  assert.match(builder, /minimumPrice/);
+  assert.match(builder, /h-19 w-17 shrink-0/);
+  assert.match(builder, /recommendationGroups/);
+  assert.match(builder, /DEFCON actions\/90/);
+  assert.match(builder, /Every legal same-position swap is re-scored/);
+  assert.match(builder, /Best next move/);
+  assert.match(builder, /defaultLineup/);
+  assert.doesNotMatch(builder, /\.slice\(0, 16\)/);
+  assert.match(builder, /What you gain/);
+  assert.match(builder, /What you give up/);
+  assert.match(builder, /Whole-squad effect/);
+  assert.match(builder, /comparison score changes by/);
+  assert.match(builder, /not xPts/);
+  assert.match(route, /gw1-preseason-projection-preview/);
+  assert.match(route, /Cache-Control": "no-store/);
+  assert.match(shell, /href: "\/gw1-squad"/);
+});

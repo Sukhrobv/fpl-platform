@@ -4,6 +4,7 @@ import {
   applyUncertaintyFlags,
   blendPriorWithCurrent,
   classifyPriorConfidence,
+  defconShrinkageMinutes,
   per90OrNull,
   shrinkRate,
 } from "../lib/services/playerSeasonPriorService";
@@ -46,4 +47,26 @@ test("context changes lower confidence and expose explicit reasons", () => {
   assert.ok(adjusted.score < 0.9);
   assert.deepEqual(adjusted.reasons, ["TRANSFER", "POSITION_CHANGE"]);
   assert.equal(classifyPriorConfidence(adjusted.score), adjusted.confidence);
+});
+
+test("clearance-heavy defender keeps more of an observed DEFCON action rate", () => {
+  const highClearance = defconShrinkageMinutes({
+    position: "DEFENDER",
+    rawClearances90: 6,
+    clearanceBaseline90: 3,
+  });
+  const lowClearance = defconShrinkageMinutes({
+    position: "DEFENDER",
+    rawClearances90: 1.5,
+    clearanceBaseline90: 3,
+  });
+  assert.ok(highClearance < lowClearance);
+  assert.equal(
+    defconShrinkageMinutes({
+      position: "MIDFIELDER",
+      rawClearances90: 6,
+      clearanceBaseline90: 3,
+    }),
+    900,
+  );
 });
