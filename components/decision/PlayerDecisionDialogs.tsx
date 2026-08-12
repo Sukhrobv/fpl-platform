@@ -11,6 +11,20 @@ import {
   UserRoundSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  forecastValueTone,
+  type ForecastValueRange,
+} from "@/lib/forecastColorScale";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,6 +59,46 @@ import {
 
 function metricValue(value: number | null, digits = 1) {
   return value == null ? "—" : value.toFixed(digits);
+}
+
+function closestChartStep(rawStep: number) {
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const normalized = rawStep / magnitude;
+  const candidates = [1, 2, 2.5, 5, 10];
+  const nearest = candidates.reduce((best, candidate) =>
+    Math.abs(candidate - normalized) < Math.abs(best - normalized)
+      ? candidate
+      : best,
+  );
+
+  return nearest * magnitude;
+}
+
+function comparisonChartScale(players: ExplorerPlayer[]) {
+  const values = players.flatMap((player) =>
+    Object.values(player.forecasts)
+      .map((forecast) => forecast?.xPts)
+      .filter((value): value is number => value != null),
+  );
+
+  if (!values.length) {
+    return { domain: [0, 5] as const, ticks: [0, 1, 2, 3, 4, 5] };
+  }
+
+  const lowest = Math.min(...values);
+  const highest = Math.max(...values);
+  const spread = Math.max(highest - lowest, 0.4);
+  const padding = Math.max(0.4, spread * 0.32);
+  const step = closestChartStep((spread + padding * 2) / 3);
+  const rawLower = Math.floor((lowest - padding) / step) * step;
+  const lower = lowest > step && rawLower === 0 ? step : Math.max(0, rawLower);
+  const upper = Math.ceil((highest + padding) / step) * step;
+  const ticks = Array.from(
+    { length: Math.round((upper - lower) / step) + 1 },
+    (_, index) => Number((lower + step * index).toFixed(2)),
+  );
+
+  return { domain: [lower, upper] as const, ticks };
 }
 
 const overrideKinds: Array<{ value: PreseasonOverrideKind; label: string }> = [
@@ -288,6 +342,7 @@ export function PlayerDetailsDialog({
   open,
   onOpenChange,
   selected,
+  forecastColorRanges,
   onToggleCompare,
   override,
   onOverrideChange,
@@ -297,6 +352,9 @@ export function PlayerDetailsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selected: boolean;
+  forecastColorRanges: {
+    byGameweek: Map<number, ForecastValueRange>;
+  };
   onToggleCompare: (player: ExplorerPlayer) => void;
   override: PreseasonOverride | null;
   onOverrideChange: (
@@ -308,7 +366,7 @@ export function PlayerDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[min(96rem,calc(100vw-2rem))] max-w-none overflow-y-auto sm:max-w-none">
         <DialogHeader className="border-b border-border pb-4 pr-8">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
             <PlayerIdentity player={player} />
@@ -317,7 +375,7 @@ export function PlayerDetailsDialog({
           <DialogTitle className="sr-only">
             {player.webName} details
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             Player facts and forecasts remain visibly separate.
           </DialogDescription>
         </DialogHeader>
@@ -346,15 +404,12 @@ export function PlayerDetailsDialog({
           </h3>
           {gameweeks.length ? (
             <div className="overflow-x-auto border border-border bg-background">
-              <div className="min-w-[44rem] divide-y divide-border">
+              <div className="grid min-w-[74rem] grid-cols-5 divide-x divide-border">
                 {gameweeks.map((gameweek) => {
                   const forecast = player.forecasts[gameweek];
                   const fixture = player.fixtures[gameweek];
                   return (
-                    <article
-                      key={gameweek}
-                      className="grid grid-cols-[5rem_9rem_8rem_1fr] gap-4 p-4 text-xs"
-                    >
+                    <article key={gameweek} className="min-w-0 p-4 text-xs">
                       <div>
                         <p className="text-[10px] font-black tracking-wider text-muted-foreground uppercase">
                           GW{gameweek}
@@ -367,7 +422,18 @@ export function PlayerDetailsDialog({
                         <p className="text-[10px] font-black tracking-wider text-muted-foreground uppercase">
                           Expected points
                         </p>
-                        <p className="fpl-data mt-1 text-2xl font-black text-forecast">
+                        <p
+                          className={cn(
+                            "fpl-data mt-1 text-2xl font-black",
+                            forecastValueTone(
+                              forecast?.xPts,
+                              forecastColorRanges.byGameweek.get(gameweek) ?? {
+                                min: 0,
+                                max: 0,
+                              },
+                            ),
+                          )}
+                        >
                           {forecast ? forecast.xPts.toFixed(1) : "—"}
                         </p>
                         {forecast?.range ? (
@@ -401,7 +467,7 @@ export function PlayerDetailsDialog({
                         )}
                       </div>
                       {forecast ? (
-                        <div className="grid grid-cols-2 gap-x-5 gap-y-2 border-l border-border pl-4">
+                        <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-3">
                           <div>
                             <p className="text-muted-foreground">Appearance</p>
                             <p className="fpl-data font-bold">
@@ -518,7 +584,7 @@ export function PlayerDetailsDialog({
                           </div>
                         </div>
                       ) : (
-                        <div className="border-l border-border pl-4 leading-5 text-muted-foreground">
+                        <div className="mt-4 border-t border-border pt-3 leading-5 text-muted-foreground">
                           Detailed xPts components will appear here only when
                           the season-scoped model has real inputs for this GW.
                         </div>
@@ -573,119 +639,205 @@ export function PlayerComparisonDialog({
   onRemove: (player: ExplorerPlayer) => void;
   onStartTransfer: () => void;
 }) {
-  const bestForecast = useMemo(
+  const comparisonGameweeks = useMemo(
     () =>
-      players
-        .filter((player) => player.forecastTotal != null)
-        .sort((a, b) => (b.forecastTotal ?? 0) - (a.forecastTotal ?? 0))[0],
+      Array.from(
+        new Set(
+          players.flatMap((player) =>
+            Object.keys(player.forecasts).map(Number),
+          ),
+        ),
+      ).sort((left, right) => left - right),
     [players],
   );
+  const comparisonChartData = useMemo(
+    () =>
+      comparisonGameweeks.map((gameweek) => ({
+        gameweek: `GW${gameweek}`,
+        ...Object.fromEntries(
+          players.map((player) => [
+            `player-${player.id}`,
+            player.forecasts[gameweek]?.xPts ?? null,
+          ]),
+        ),
+      })),
+    [comparisonGameweeks, players],
+  );
+  const comparisonScale = useMemo(
+    () => comparisonChartScale(players),
+    [players],
+  );
+  const comparisonColors = ["#6d28d9", "#dc2626", "#047857"];
+  const [chartReady, setChartReady] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setChartReady(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setChartReady(true), 80);
+    return () => window.clearTimeout(timeout);
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-5xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[min(88rem,calc(100vw-2rem))] max-w-none overflow-y-auto sm:max-w-none">
         <DialogHeader className="border-b border-border pb-4 pr-8">
           <DialogTitle className="text-lg font-black">
             Compare players
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             Facts, forecasts and evidence status are compared without mixing
             their meaning.
           </DialogDescription>
         </DialogHeader>
 
         {players.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[42rem] border-collapse text-xs">
-              <thead>
-                <tr>
-                  <th className="w-32 border border-border bg-muted/40 p-3 text-left text-[10px] uppercase">
-                    Metric
-                  </th>
-                  {players.map((player) => (
-                    <th
-                      key={player.id}
-                      className="min-w-44 border border-border p-3 text-left align-top"
+          <>
+            {chartReady && comparisonChartData.length ? (
+              <section
+                aria-labelledby="comparison-chart-title"
+                className="border border-border bg-background p-3"
+              >
+                <h3
+                  id="comparison-chart-title"
+                  className="text-xs font-black text-muted-foreground"
+                >
+                  xPts by gameweek
+                </h3>
+                <div className="mt-2 h-64">
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                    minWidth={0}
+                    minHeight={240}
+                  >
+                    <LineChart
+                      data={comparisonChartData}
+                      margin={{ top: 8, right: 18, bottom: 0, left: 0 }}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <PlayerIdentity player={player} compact />
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => onRemove(player)}
-                          aria-label={`Remove ${player.webName} from comparison`}
-                        >
-                          <Trash2 aria-hidden="true" />
-                        </Button>
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  [
-                    "Price",
-                    (player: ExplorerPlayer) =>
-                      `£${(player.nowCost / 10).toFixed(1)}m`,
-                  ],
-                  [
-                    "Points",
-                    (player: ExplorerPlayer) => String(player.totalPoints),
-                  ],
-                  [
-                    "PPG",
-                    (player: ExplorerPlayer) => player.pointsPerGame.toFixed(1),
-                  ],
-                  [
-                    "Ownership",
-                    (player: ExplorerPlayer) =>
-                      `${player.selectedBy.toFixed(1)}%`,
-                  ],
-                  ["Form", (player: ExplorerPlayer) => player.form.toFixed(1)],
-                  [
-                    "Next xPts",
-                    (player: ExplorerPlayer) =>
-                      metricValue(player.forecastTotal),
-                  ],
-                ].map(([label, value]) => (
-                  <tr key={String(label)}>
-                    <th
-                      scope="row"
-                      className="border border-border bg-muted/40 p-3 text-left text-[10px] font-black uppercase"
-                    >
-                      {String(label)}
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis
+                        dataKey="gameweek"
+                        tickLine={false}
+                        axisLine={false}
+                        padding={{ left: 24, right: 24 }}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        width={42}
+                        tickMargin={4}
+                        domain={comparisonScale.domain}
+                        ticks={comparisonScale.ticks}
+                        label={{
+                          value: "xPts",
+                          angle: -90,
+                          position: "insideLeft",
+                        }}
+                      />
+                      <Tooltip />
+                      <Legend />
+                      {players.map((player, index) => (
+                        <Line
+                          key={player.id}
+                          type="monotone"
+                          dataKey={`player-${player.id}`}
+                          name={player.webName}
+                          stroke={comparisonColors[index] ?? "#7c3a8d"}
+                          strokeWidth={2.5}
+                          dot={{ r: 3 }}
+                          connectNulls
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </section>
+            ) : null}
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[34rem] border-collapse text-xs">
+                <thead>
+                  <tr>
+                    <th className="w-28 border border-border bg-muted/40 px-2 py-1.5 text-left text-[10px] uppercase">
+                      Metric
                     </th>
                     {players.map((player) => (
-                      <td
+                      <th
                         key={player.id}
-                        className={cn(
-                          "fpl-data border border-border p-3 text-right font-bold",
-                          label === "Next xPts" && "text-forecast",
-                        )}
+                        className="min-w-36 border border-border px-2 py-1.5 text-left align-top"
                       >
-                        {(value as (player: ExplorerPlayer) => string)(player)}
-                      </td>
+                        <div className="flex items-start justify-between gap-2">
+                          <PlayerIdentity player={player} compact />
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => onRemove(player)}
+                            aria-label={`Remove ${player.webName} from comparison`}
+                          >
+                            <Trash2 aria-hidden="true" />
+                          </Button>
+                        </div>
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "Price",
+                      (player: ExplorerPlayer) =>
+                        `£${(player.nowCost / 10).toFixed(1)}m`,
+                    ],
+                    [
+                      "Points",
+                      (player: ExplorerPlayer) => String(player.totalPoints),
+                    ],
+                    [
+                      "PPG",
+                      (player: ExplorerPlayer) =>
+                        player.pointsPerGame.toFixed(1),
+                    ],
+                    [
+                      "Ownership",
+                      (player: ExplorerPlayer) =>
+                        `${player.selectedBy.toFixed(1)}%`,
+                    ],
+                    [
+                      "Form",
+                      (player: ExplorerPlayer) => player.form.toFixed(1),
+                    ],
+                  ].map(([label, value]) => (
+                    <tr key={String(label)}>
+                      <th
+                        scope="row"
+                        className="border border-border bg-muted/40 px-2 py-1.5 text-left text-[10px] font-black uppercase"
+                      >
+                        {String(label)}
+                      </th>
+                      {players.map((player) => (
+                        <td
+                          key={player.id}
+                          className="fpl-data border border-border px-2 py-1.5 text-right font-bold"
+                        >
+                          {(value as (player: ExplorerPlayer) => string)(
+                            player,
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
           <p className="border border-border p-5 text-sm text-muted-foreground">
             Select players in the table to compare them.
           </p>
         )}
-
-        <div className="flex items-center gap-3 border border-border bg-background p-3">
-          <Scale className="size-4 text-forecast" aria-hidden="true" />
-          <p className="text-xs text-muted-foreground">
-            {bestForecast
-              ? `${bestForecast.webName} has the strongest available forecast in this set.`
-              : "No comparable forecast is published for this set yet."}
-          </p>
-        </div>
 
         <DialogFooter>
           <Button onClick={onStartTransfer} disabled={players.length < 2}>

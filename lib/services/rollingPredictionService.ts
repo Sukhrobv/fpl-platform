@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { classifyPriorConfidence } from "@/lib/services/playerSeasonPriorService";
 import {
   buildTeamStrengthPriors,
   resolveOpponentStrengthPrior,
@@ -8,10 +9,13 @@ import {
 import {
   indicativePreseasonRange,
   projectGw1PreseasonProfile,
+  preseasonAvailabilityProbability,
+  preseasonStartGivenAvailableProbability,
   readinessPayloadSchema,
   type Gw1PreseasonFixtureProjection,
   type Gw1PreseasonProfile,
 } from "@/lib/services/seasonPredictionPublicationService";
+import { constrainTeamLineupProbabilities } from "@/lib/services/teamLineupCapacityService";
 import {
   isActiveForGameweek,
   toAppliedPreseasonOverride,
@@ -186,6 +190,43 @@ export function rollingStartProbability(input: {
   const expectedMinutes =
     currentAverage * currentWeight + priorAverage * (1 - currentWeight);
   return clamp((expectedMinutes - 14) / 62, 0.05, 0.98);
+}
+
+export function rollingRoleConfidence(input: {
+  priorConfidenceScore: number;
+  currentMinutes: number;
+  currentAppearances: number;
+  nextStartProbability: number;
+}) {
+  if (input.currentAppearances === 0) {
+    return {
+      score: clamp(input.priorConfidenceScore, 0, 1),
+      confidence: classifyPriorConfidence(input.priorConfidenceScore),
+    };
+  }
+  const sampleWeight = Math.min(
+    0.65,
+    input.currentAppearances / (input.currentAppearances + 3),
+  );
+  const roleClarity =
+    Math.abs(clamp(input.nextStartProbability, 0, 1) - 0.5) * 2;
+  const minutesPerAppearance = input.currentMinutes / input.currentAppearances;
+  const observedRoleSignal = clamp((minutesPerAppearance - 10) / 70, 0, 1);
+  const currentRoleConfidence = clamp(
+    0.35 + roleClarity * 0.35 + observedRoleSignal * 0.3,
+    0,
+    1,
+  );
+  const score = clamp(
+    input.priorConfidenceScore * (1 - sampleWeight) +
+      currentRoleConfidence * sampleWeight,
+    0,
+    1,
+  );
+  return {
+    score: Number(score.toFixed(3)),
+    confidence: classifyPriorConfidence(score),
+  };
 }
 
 export function expectedSavePoints(expectedSaves: number): number {
@@ -536,6 +577,97 @@ export class RollingPredictionService {
           targetSeasonCode: targetSeason.code,
         })
       : new Map<number, PreseasonMinutesTrackerEvidence>();
+    const rawStartProbabilityBySeasonPlayerId = new Map(
+      readiness.profiles.map((profile) => {
+        const current = currentStatsBySeasonPlayerId.get(
+          profile.seasonPlayerId,
+        );
+        const bootstrap = currentBootstrapRates.get(profile.fplId);
+        const currentMinutes = current?._sum.minutes ?? bootstrap?.minutes ?? 0;
+        const currentAppearances = current?._count._all ?? 0;
+        return [
+          profile.seasonPlayerId,
+          rollingStartProbability({
+            priorMinutes: profile.priorUsage.minutes,
+            priorAppearances: profile.priorUsage.appearances,
+            currentMinutes,
+            currentAppearances,
+          }) ?? preseasonStartGivenAvailableProbability(profile),
+        ] as const;
+      }),
+    );
+    const constrainedLineupsByPlayerAndGameweek = new Map<
+      string,
+      { startProbability: number; substituteAppearanceProbability: number }
+    >();
+    for (const gameweek of horizonGameweeks) {
+      const constrainedLineups = constrainTeamLineupProbabilities(
+        readiness.profiles.map((profile) => {
+          const override = overridesBySeasonPlayerId.get(
+            profile.seasonPlayerId,
+          );
+          const manualOverride =
+            override && isActiveForGameweek(override, gameweek)
+              ? toAppliedPreseasonOverride(override)
+              : null;
+          const availability =
+            manualOverride?.availabilityCap == null
+              ? preseasonAvailabilityProbability(profile)
+              : Math.min(
+                  preseasonAvailabilityProbability(profile),
+                  manualOverride.availabilityCap / 100,
+                );
+          const startGivenAvailable =
+            rawStartProbabilityBySeasonPlayerId.get(profile.seasonPlayerId) ??
+            preseasonStartGivenAvailableProbability(profile);
+          const rawStartProbability = Math.min(
+            availability * startGivenAvailable,
+            manualOverride?.startProbabilityCap ?? 1,
+          );
+          return {
+            seasonPlayerId: profile.seasonPlayerId,
+            team: profile.team,
+            position: profile.position,
+            startProbability: rawStartProbability,
+            substituteAppearanceProbability:
+              profile.position === "GOALKEEPER"
+                ? 0
+                : availability * (1 - startGivenAvailable) * 0.55,
+          };
+        }),
+      );
+      for (const profile of readiness.profiles) {
+        const override = overridesBySeasonPlayerId.get(profile.seasonPlayerId);
+        const manualOverride =
+          override && isActiveForGameweek(override, gameweek)
+            ? toAppliedPreseasonOverride(override)
+            : null;
+        const availability =
+          manualOverride?.availabilityCap == null
+            ? preseasonAvailabilityProbability(profile)
+            : Math.min(
+                preseasonAvailabilityProbability(profile),
+                manualOverride.availabilityCap / 100,
+              );
+        const constrainedLineup = constrainedLineups.get(
+          profile.seasonPlayerId,
+        ) ?? {
+          startProbability: 0,
+          substituteAppearanceProbability: 0,
+        };
+        constrainedLineupsByPlayerAndGameweek.set(
+          `${profile.seasonPlayerId}:${gameweek}`,
+          {
+            startProbability:
+              availability > 0
+                ? constrainedLineup.startProbability / availability
+                : 0,
+            substituteAppearanceProbability:
+              constrainedLineup.substituteAppearanceProbability,
+          },
+        );
+      }
+    }
 
     const projections = readiness.profiles.map((profile) => {
       const current = currentStatsBySeasonPlayerId.get(profile.seasonPlayerId);
@@ -564,12 +696,6 @@ export class RollingPredictionService {
           }),
         },
       };
-      const startProbabilityOverride = rollingStartProbability({
-        priorMinutes: profile.priorUsage.minutes,
-        priorAppearances: profile.priorUsage.appearances,
-        currentMinutes,
-        currentAppearances,
-      });
       const sourceMinutes = source?._sum.minutes ?? 0;
       const saveRate90 = blendCurrentRate({
         prior:
@@ -666,7 +792,18 @@ export class RollingPredictionService {
                       profile.seasonPlayerId,
                     ) ?? null)
                   : null,
-              startProbabilityOverride,
+              startProbabilityOverride:
+                constrainedLineupsByPlayerAndGameweek.get(
+                  `${profile.seasonPlayerId}:${fixture.gameweek}`,
+                )?.startProbability ??
+                rawStartProbabilityBySeasonPlayerId.get(
+                  profile.seasonPlayerId,
+                ) ??
+                preseasonStartGivenAvailableProbability(profile),
+              substituteAppearanceProbabilityOverride:
+                constrainedLineupsByPlayerAndGameweek.get(
+                  `${profile.seasonPlayerId}:${fixture.gameweek}`,
+                )?.substituteAppearanceProbability ?? 0,
               currentSeasonEvidence:
                 canUseCurrentSeasonBootstrap(statsThroughGameweek),
             },
@@ -710,8 +847,25 @@ export class RollingPredictionService {
             },
           } satisfies RollingFixtureProjection;
         });
+      const roleConfidence = rollingRoleConfidence({
+        priorConfidenceScore: profile.confidenceScore,
+        currentMinutes,
+        currentAppearances,
+        nextStartProbability: fixturePredictions[0]?.startProbability ?? 0,
+      });
+      const roleAwareFixturePredictions = fixturePredictions.map((fixture) => ({
+        ...fixture,
+        range: indicativePreseasonRange({
+          xPts: fixture.xPts,
+          confidenceScore: roleConfidence.score,
+          reliabilityScore: 70,
+        }),
+      }));
       const totalXPts = rounded(
-        fixturePredictions.reduce((sum, fixture) => sum + fixture.xPts, 0),
+        roleAwareFixturePredictions.reduce(
+          (sum, fixture) => sum + fixture.xPts,
+          0,
+        ),
       );
       return {
         seasonPlayerId: profile.seasonPlayerId,
@@ -720,9 +874,9 @@ export class RollingPredictionService {
         team: profile.team,
         position: profile.position,
         price: profile.price,
-        confidence: profile.confidence,
-        confidenceScore: profile.confidenceScore,
-        estimateStatus: fixturePredictions.some(
+        confidence: roleConfidence.confidence,
+        confidenceScore: roleConfidence.score,
+        estimateStatus: roleAwareFixturePredictions.some(
           (fixture) => fixture.expectedMinutes > 0,
         )
           ? profile.priorMetrics.xG90 != null &&
@@ -740,17 +894,17 @@ export class RollingPredictionService {
           ),
         ].sort(),
         evidence: adjustedProfile.priorMetrics,
-        fixtures: fixturePredictions,
+        fixtures: roleAwareFixturePredictions,
         totalXPts,
         totalRange: {
           lower: rounded(
-            fixturePredictions.reduce(
+            roleAwareFixturePredictions.reduce(
               (sum, fixture) => sum + fixture.range.lower,
               0,
             ),
           ),
           upper: rounded(
-            fixturePredictions.reduce(
+            roleAwareFixturePredictions.reduce(
               (sum, fixture) => sum + fixture.range.upper,
               0,
             ),

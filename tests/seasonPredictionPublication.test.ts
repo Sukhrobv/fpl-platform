@@ -148,6 +148,15 @@ test("start probability follows starts per appearance rather than starts per 90"
   assert.ok(partTimePlayer.fixtures[0].expectedMinutes < 50);
 });
 
+test("goalkeepers do not receive routine substitute minutes", () => {
+  const goalkeeper = projectGw1PreseasonProfile(
+    { ...profile, position: "GOALKEEPER" },
+    { startProbabilityOverride: 0.5 },
+  );
+
+  assert.equal(goalkeeper.fixtures[0].expectedMinutes, 38);
+});
+
 test("GW1 preview fails safely to unavailable for a player ruled out", () => {
   const result = projectGw1PreseasonProfile({
     ...profile,

@@ -1,5 +1,5 @@
-import { Gw1SquadBuilder } from "@/components/gw1-squad/Gw1SquadBuilder";
+import { redirect } from "next/navigation";
 
-export default function Gw1SquadPage() {
-  return <Gw1SquadBuilder />;
+export default function LegacyGw1SquadPage() {
+  redirect("/squad");
 }

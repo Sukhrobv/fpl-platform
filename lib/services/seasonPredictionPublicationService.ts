@@ -21,6 +21,7 @@ import {
   trackerEvidenceFromSnapshot,
   type PreseasonMinutesTrackerEvidence,
 } from "@/lib/services/preseasonMinutesTrackerService";
+import { constrainTeamLineupProbabilities } from "@/lib/services/teamLineupCapacityService";
 
 export const SEASON_PREDICTION_PUBLICATION_FLAG =
   "season_prediction_publication_enabled";
@@ -160,11 +161,31 @@ function checksum(value: unknown) {
   return createHash("sha256").update(stableStringify(value)).digest("hex");
 }
 
-function availabilityMultiplier(profile: Gw1PreseasonProfile): number {
+export function preseasonAvailabilityProbability(
+  profile: Gw1PreseasonProfile,
+): number {
   if (profile.availability.chanceOfPlaying != null) {
     return profile.availability.chanceOfPlaying / 100;
   }
   return profile.availability.status.toLowerCase() === "a" ? 1 : 0.65;
+}
+
+export function preseasonStartGivenAvailableProbability(
+  profile: Gw1PreseasonProfile,
+): number {
+  return assessPreseasonPlayer({
+    id: profile.seasonPlayerId,
+    team: profile.team,
+    position: profile.position,
+    price: profile.price,
+    projectedPoints: 0,
+    availability: profile.availability,
+    confidence: profile.confidence,
+    confidenceScore: profile.confidenceScore,
+    uncertaintyReasons: profile.uncertaintyReasons,
+    priorUsage: profile.priorUsage,
+    priorMetrics: profile.priorMetrics,
+  }).reliability.startGivenAvailableProbability;
 }
 
 function goalPoints(position: Gw1PreseasonProfile["position"]): number {
@@ -348,6 +369,7 @@ export function projectGw1PreseasonProfile(
     manualOverride?: AppliedPreseasonOverride | null;
     preseasonMinutesEvidence?: PreseasonMinutesTrackerEvidence | null;
     startProbabilityOverride?: number | null;
+    substituteAppearanceProbabilityOverride?: number | null;
     currentSeasonEvidence?: boolean;
   } = {},
 ): Gw1PreseasonProjection {
@@ -373,7 +395,7 @@ export function projectGw1PreseasonProfile(
 
   const manualOverride = context.manualOverride ?? null;
   const preseasonMinutesEvidence = context.preseasonMinutesEvidence ?? null;
-  const baseAvailability = availabilityMultiplier(profile);
+  const baseAvailability = preseasonAvailabilityProbability(profile);
   const availability =
     manualOverride?.availabilityCap == null
       ? baseAvailability
@@ -395,12 +417,20 @@ export function projectGw1PreseasonProfile(
           availabilityAdjustedStartProbability,
           manualOverride.startProbabilityCap,
         );
+  const substituteAppearanceProbability = clamp(
+    context.substituteAppearanceProbabilityOverride ??
+      (profile.position === "GOALKEEPER"
+        ? 0
+        : 1 - startProbabilityBeforeMinutesCap),
+    0,
+    1 - startProbabilityBeforeMinutesCap,
+  );
   const uncappedExpectedMinutes =
     availability === 0
       ? 0
       : clamp(
           startProbabilityBeforeMinutesCap * 76 +
-            (1 - startProbabilityBeforeMinutesCap) * 14,
+            substituteAppearanceProbability * 14,
           0,
           90,
         );
@@ -839,19 +869,68 @@ export class SeasonPredictionPublicationService {
           targetSeasonCode: targetSeason.code,
         })
       : new Map<number, PreseasonMinutesTrackerEvidence>();
+    const constrainedLineupsBySeasonPlayerId = constrainTeamLineupProbabilities(
+      readiness.profiles.map((profile) => {
+        const manualOverride = overridesBySeasonPlayerId.get(
+          profile.seasonPlayerId,
+        );
+        const availability =
+          manualOverride?.availabilityCap == null
+            ? preseasonAvailabilityProbability(profile)
+            : Math.min(
+                preseasonAvailabilityProbability(profile),
+                manualOverride.availabilityCap / 100,
+              );
+        const startGivenAvailable =
+          preseasonStartGivenAvailableProbability(profile);
+        const rawStartProbability = Math.min(
+          availability * startGivenAvailable,
+          manualOverride?.startProbabilityCap ?? 1,
+        );
+        return {
+          seasonPlayerId: profile.seasonPlayerId,
+          team: profile.team,
+          position: profile.position,
+          startProbability: rawStartProbability,
+          substituteAppearanceProbability:
+            profile.position === "GOALKEEPER"
+              ? 0
+              : availability * (1 - startGivenAvailable) * 0.55,
+        };
+      }),
+    );
     const predictions = readiness.profiles
-      .map((profile) =>
-        projectGw1PreseasonProfile(profile, {
+      .map((profile) => {
+        const manualOverride = overridesBySeasonPlayerId.get(
+          profile.seasonPlayerId,
+        );
+        const availability =
+          manualOverride?.availabilityCap == null
+            ? preseasonAvailabilityProbability(profile)
+            : Math.min(
+                preseasonAvailabilityProbability(profile),
+                manualOverride.availabilityCap / 100,
+              );
+        const constrainedLineup = constrainedLineupsBySeasonPlayerId.get(
+          profile.seasonPlayerId,
+        );
+        return projectGw1PreseasonProfile(profile, {
           opponentStrengthByFixtureId,
           teamStrengthByTeamName,
           leagueGoalsPerTeamMatch: sourceTeamPriors.leagueGoalsPerTeamMatch,
           sourceSeason: priorConfig.sourceSeason.code,
-          manualOverride: overridesBySeasonPlayerId.get(profile.seasonPlayerId),
+          manualOverride,
           preseasonMinutesEvidence: trackerEvidenceBySeasonPlayerId.get(
             profile.seasonPlayerId,
           ),
-        }),
-      )
+          startProbabilityOverride:
+            availability > 0
+              ? (constrainedLineup?.startProbability ?? 0) / availability
+              : 0,
+          substituteAppearanceProbabilityOverride:
+            constrainedLineup?.substituteAppearanceProbability ?? 0,
+        });
+      })
       .sort(
         (left, right) =>
           right.totalXPts - left.totalXPts || left.fplId - right.fplId,

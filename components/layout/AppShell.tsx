@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Bot,
   ChartNoAxesCombined,
-  ClipboardPenLine,
   Database,
   Home,
   Menu,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   ShieldCheck,
   Sun,
@@ -30,9 +31,8 @@ import {
 
 const navigation = [
   { href: "/", label: "Overview", icon: Home },
-  { href: "/personal", label: "My team", icon: Users },
+  { href: "/squad", label: "Squad", icon: Users },
   { href: "/predictions", label: "Player explorer", icon: ChartNoAxesCombined },
-  { href: "/gw1-squad", label: "GW1 builder", icon: ClipboardPenLine },
   { href: "/chat", label: "Assistant", icon: Bot },
 ] as const;
 
@@ -117,26 +117,49 @@ function DataStatus() {
   );
 }
 
-function DesktopSidebar() {
+function DesktopSidebar({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <aside className="hidden min-h-dvh w-56 shrink-0 border-r border-border/80 bg-card/80 lg:flex lg:flex-col">
-      <div className="flex h-16 items-center border-b border-border px-5">
-        <Brand />
-      </div>
-      <div className="flex-1 px-3 py-5">
-        <p className="mb-3 px-3 text-[10px] font-bold tracking-[0.16em] text-muted-foreground uppercase">
-          Workspace
-        </p>
-        <Navigation />
-      </div>
-      <div className="border-t border-border p-3">
-        <Link
-          href="/settings"
-          className="flex min-h-10 items-center gap-3 rounded-lg border-l-2 border-transparent px-3 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:bg-muted hover:text-foreground"
-        >
-          <Settings className="size-4" aria-hidden="true" />
-          Settings
-        </Link>
+    <aside
+      className={cn(
+        "hidden min-h-dvh shrink-0 overflow-hidden border-r border-border/80 bg-card/80 transition-[width,border-color] duration-200 lg:flex lg:flex-col",
+        open ? "w-56" : "w-0 border-r-transparent",
+      )}
+      aria-hidden={!open}
+    >
+      <div className="flex min-h-dvh w-56 flex-col">
+        <div className="flex h-16 items-center justify-between border-b border-border px-5">
+          <Brand />
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onToggle}
+            aria-label="Hide navigation"
+            title="Hide navigation"
+          >
+            <PanelLeftClose aria-hidden="true" />
+          </Button>
+        </div>
+        <div className="flex-1 px-3 py-5">
+          <p className="mb-3 px-3 text-[10px] font-bold tracking-[0.16em] text-muted-foreground uppercase">
+            Workspace
+          </p>
+          <Navigation />
+        </div>
+        <div className="border-t border-border p-3">
+          <Link
+            href="/settings"
+            className="flex min-h-10 items-center gap-3 rounded-lg border-l-2 border-transparent px-3 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:bg-muted hover:text-foreground"
+          >
+            <Settings className="size-4" aria-hidden="true" />
+            Settings
+          </Link>
+        </div>
       </div>
     </aside>
   );
@@ -178,10 +201,16 @@ function MobileNavigation() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { density } = useFplSettings();
+  const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isSquadWorkspace = pathname === "/squad";
 
   return (
     <div
-      className="fpl-ui app-root flex min-h-dvh bg-background text-foreground"
+      className={cn(
+        "fpl-ui app-root flex min-h-dvh bg-background text-foreground",
+        isSquadWorkspace && "xl:h-dvh xl:overflow-hidden",
+      )}
       data-density={density}
     >
       <a
@@ -190,11 +219,33 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         Skip to content
       </a>
-      <DesktopSidebar />
-      <div className="min-w-0 flex-1">
+      <DesktopSidebar
+        open={sidebarOpen}
+        onToggle={() => setSidebarOpen(false)}
+      />
+      <div
+        className={cn(
+          "min-w-0 flex-1",
+          isSquadWorkspace && "xl:h-dvh xl:overflow-hidden",
+        )}
+      >
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/94 px-4 backdrop-blur-sm sm:px-6">
           <div className="flex items-center gap-3">
             <MobileNavigation />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden lg:inline-flex"
+              onClick={() => setSidebarOpen((open) => !open)}
+              aria-label={sidebarOpen ? "Hide navigation" : "Show navigation"}
+              title={sidebarOpen ? "Hide navigation" : "Show navigation"}
+            >
+              {sidebarOpen ? (
+                <PanelLeftClose aria-hidden="true" />
+              ) : (
+                <PanelLeftOpen aria-hidden="true" />
+              )}
+            </Button>
             <div className="lg:hidden">
               <Brand />
             </div>
@@ -215,7 +266,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <main
           id="main-content"
-          className="min-h-[calc(100dvh-4rem)] overflow-x-hidden"
+          className={cn(
+            "min-h-[calc(100dvh-4rem)] overflow-x-hidden",
+            isSquadWorkspace &&
+              "xl:h-[calc(100dvh-4rem)] xl:min-h-0 xl:overflow-hidden",
+          )}
         >
           {children}
         </main>

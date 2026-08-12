@@ -37,3 +37,15 @@ test("a preseason draft rejects invalid captaincy and duplicate players", () => 
   assert.equal(duplicate.success, false);
   assert.equal(captainOnBench.success, false);
 });
+
+test("a preseason draft retains a negative calculated bank while it is repaired", () => {
+  const result = preseasonSquadDraftStateSchema.safeParse({
+    playerIds: [11],
+    starterIds: [],
+    captainId: null,
+    viceCaptainId: null,
+    bank: -5,
+  });
+
+  assert.equal(result.success, true);
+});

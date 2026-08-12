@@ -17,9 +17,11 @@ import {
 export function PlayerIdentity({
   player,
   compact = false,
+  table = false,
 }: {
   player: ExplorerPlayer;
   compact?: boolean;
+  table?: boolean;
 }) {
   const positionTone = {
     GOALKEEPER: "bg-[#dbe9dd] text-[#355842]",
@@ -33,7 +35,11 @@ export function PlayerIdentity({
         className={cn(
           "inline-flex shrink-0 items-center justify-center rounded-full px-2 font-bold tracking-[0.04em]",
           positionTone[player.position],
-          compact ? "h-6 min-w-9 text-[9px]" : "h-7 min-w-11 text-[10px]",
+          compact
+            ? table
+              ? "h-7 min-w-10 text-[10px]"
+              : "h-6 min-w-9 text-[9px]"
+            : "h-7 min-w-11 text-[10px]",
         )}
         aria-hidden="true"
       >
@@ -43,12 +49,17 @@ export function PlayerIdentity({
         <p
           className={cn(
             "truncate font-black",
-            compact ? "text-xs" : "text-base",
+            compact ? (table ? "text-sm" : "text-xs") : "text-base",
           )}
         >
           {player.webName}
         </p>
-        <p className="mt-0.5 flex items-center gap-1.5 truncate text-[10px] text-muted-foreground">
+        <p
+          className={cn(
+            "mt-0.5 flex items-center gap-1.5 truncate text-muted-foreground",
+            table ? "text-[11px]" : "text-[10px]",
+          )}
+        >
           <TeamMark shortName={player.team.shortName} name={player.team.name} />
           <span className="truncate">
             {player.team.name} · {availabilityLabel(player)}

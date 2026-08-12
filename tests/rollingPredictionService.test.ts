@@ -5,6 +5,7 @@ import {
   canUseCurrentSeasonBootstrap,
   calculateH2hRateAdjustment,
   expectedSavePoints,
+  rollingRoleConfidence,
   rollingStartProbability,
 } from "../lib/services/rollingPredictionService";
 
@@ -45,6 +46,32 @@ test("rolling minutes update the start probability without overreacting to one c
   assert.ok(cameo != null && regular != null);
   assert.ok(cameo > 0.5);
   assert.ok(regular > cameo);
+});
+
+test("rolling role confidence updates gradually for every position after new minutes", () => {
+  const unchanged = rollingRoleConfidence({
+    priorConfidenceScore: 0.45,
+    currentMinutes: 0,
+    currentAppearances: 0,
+    nextStartProbability: 0.8,
+  });
+  const firstStart = rollingRoleConfidence({
+    priorConfidenceScore: 0.45,
+    currentMinutes: 90,
+    currentAppearances: 1,
+    nextStartProbability: 0.8,
+  });
+  const established = rollingRoleConfidence({
+    priorConfidenceScore: 0.45,
+    currentMinutes: 450,
+    currentAppearances: 5,
+    nextStartProbability: 0.9,
+  });
+
+  assert.equal(unchanged.score, 0.45);
+  assert.ok(firstStart.score > unchanged.score);
+  assert.ok(established.score > firstStart.score);
+  assert.equal(established.confidence, "HIGH");
 });
 
 test("expected save points reward only complete save trios in expectation", () => {

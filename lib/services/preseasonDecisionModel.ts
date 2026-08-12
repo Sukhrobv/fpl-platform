@@ -236,10 +236,8 @@ export function validatePreseasonSquad(input: SquadInput): SquadValidation {
       errors.push(`INVALID_${position}_COUNT`);
     }
   }
-  if (
-    input.players.reduce((sum, player) => sum + player.price, 0) + input.bank >
-    1000
-  ) {
+  const spend = input.players.reduce((sum, player) => sum + player.price, 0);
+  if (spend > 1000 || input.bank < 0) {
     errors.push("BUDGET_EXCEEDED");
   }
   if (

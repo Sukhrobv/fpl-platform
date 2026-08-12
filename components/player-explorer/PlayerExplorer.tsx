@@ -3,6 +3,7 @@
 import {
   type CSSProperties,
   type ChangeEvent,
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -11,6 +12,7 @@ import {
 } from "react";
 import {
   type ColumnPinningState,
+  type Row,
   type SortingState,
   type VisibilityState,
   createColumnHelper,
@@ -24,9 +26,9 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  CircleHelp,
   Columns3,
   Eye,
-  Gauge,
   LoaderCircle,
   Search,
   Scale,
@@ -34,7 +36,12 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import {
+  forecastValueRange,
+  forecastValueSurface,
+  forecastValueTone,
+  type ForecastValueRange,
+} from "@/lib/forecastColorScale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -128,6 +135,107 @@ function isForecastColumn(columnId: string) {
     )
   );
 }
+
+interface ForecastColorRanges {
+  byGameweek: Map<number, ForecastValueRange>;
+  total: ForecastValueRange;
+  range: ForecastValueRange;
+  seasonValue: ForecastValueRange;
+  forecastValue: ForecastValueRange;
+}
+
+function forecastCellSurface(
+  player: ExplorerPlayer,
+  columnId: string,
+  ranges: ForecastColorRanges,
+) {
+  if (columnId.startsWith("gw-")) {
+    const gameweek = Number(columnId.slice(3));
+    return forecastValueSurface(
+      player.forecasts[gameweek]?.xPts,
+      ranges.byGameweek.get(gameweek) ?? { min: 0, max: 0 },
+    );
+  }
+
+  if (columnId === "forecastTotal") {
+    return forecastValueSurface(player.forecastTotal, ranges.total);
+  }
+
+  if (columnId === "forecastRange") {
+    const range = player.forecastRange;
+    return forecastValueSurface(
+      range ? (range.lower + range.upper) / 2 : null,
+      ranges.range,
+    );
+  }
+
+  if (columnId === "seasonValue") {
+    return forecastValueSurface(
+      player.costPerSeasonPoint,
+      ranges.seasonValue,
+      "lower",
+    );
+  }
+
+  if (columnId === "forecastValue") {
+    return forecastValueSurface(
+      player.costPerForecastPoint,
+      ranges.forecastValue,
+      "lower",
+    );
+  }
+
+  return undefined;
+}
+
+const ExplorerTableRow = memo(function ExplorerTableRow({
+  row,
+  start,
+  rowHeight,
+  selected,
+  forecastColorRanges,
+}: {
+  row: Row<ExplorerPlayer>;
+  start: number;
+  rowHeight: number;
+  selected: boolean;
+  forecastColorRanges: ForecastColorRanges;
+}) {
+  return (
+    <tr
+      className={cn(
+        "absolute flex w-full border-b border-border/75 bg-card/90 transition-colors hover:bg-muted/70",
+        selected && "bg-primary/6 shadow-[inset_3px_0_0_var(--primary)]",
+      )}
+      style={{
+        height: rowHeight,
+        transform: `translateY(${start}px)`,
+      }}
+    >
+      {row.getVisibleCells().map((cell) => (
+        <td
+          key={cell.id}
+          className={cn(
+            "flex shrink-0 items-center justify-end overflow-hidden border-r border-border bg-inherit px-3 last:border-r-0 first:justify-start",
+            isForecastColumn(cell.column.id) && "justify-center text-center",
+            cell.column.getIsPinned() && "shadow-[1px_0_0_var(--border)]",
+          )}
+          style={{
+            width: cell.column.getSize(),
+            backgroundColor: forecastCellSurface(
+              row.original,
+              cell.column.id,
+              forecastColorRanges,
+            ),
+            ...columnPinStyles(cell.column),
+          }}
+        >
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </td>
+      ))}
+    </tr>
+  );
+});
 
 export function PlayerExplorer() {
   const [players, setPlayers] = useState<ExplorerPlayer[]>([]);
@@ -320,15 +428,49 @@ export function PlayerExplorer() {
     [players],
   );
 
-  const filteredResult = useMemo(() => {
-    const started = typeof performance === "undefined" ? 0 : performance.now();
-    const rows = filterExplorerPlayers(players, filters);
+  const filteredPlayers = useMemo(
+    () => filterExplorerPlayers(players, filters),
+    [filters, players],
+  );
+  const forecastColorRanges = useMemo<ForecastColorRanges>(() => {
+    const byGameweek = new Map(
+      gameweeks.map((gameweek) => [
+        gameweek,
+        forecastValueRange(
+          filteredPlayers
+            .map((player) => player.forecasts[gameweek]?.xPts)
+            .filter((value): value is number => value != null),
+        ),
+      ]),
+    );
+
     return {
-      rows,
-      duration:
-        typeof performance === "undefined" ? 0 : performance.now() - started,
+      byGameweek,
+      total: forecastValueRange(
+        filteredPlayers
+          .map((player) => player.forecastTotal)
+          .filter((value): value is number => value != null),
+      ),
+      range: forecastValueRange(
+        filteredPlayers
+          .map((player) => {
+            const range = player.forecastRange;
+            return range ? (range.lower + range.upper) / 2 : null;
+          })
+          .filter((value): value is number => value != null),
+      ),
+      seasonValue: forecastValueRange(
+        filteredPlayers
+          .map((player) => player.costPerSeasonPoint)
+          .filter((value): value is number => value != null),
+      ),
+      forecastValue: forecastValueRange(
+        filteredPlayers
+          .map((player) => player.costPerForecastPoint)
+          .filter((value): value is number => value != null),
+      ),
     };
-  }, [filters, players]);
+  }, [filteredPlayers, gameweeks]);
 
   const columns = useMemo(() => {
     const base = [
@@ -344,7 +486,7 @@ export function PlayerExplorer() {
             onClick={() => showDetails(row.original)}
             aria-label={`Open details for ${row.original.webName}`}
           >
-            <PlayerIdentity player={row.original} compact />
+            <PlayerIdentity player={row.original} compact table />
           </button>
         ),
       }),
@@ -407,7 +549,7 @@ export function PlayerExplorer() {
       }),
       columnHelper.accessor("forecastTotal", {
         id: "forecastTotal",
-        header: gameweeks.length ? `${gameweeks.length} GW xPts` : "Next xPts",
+        header: gameweeks.length ? `${gameweeks.length} GW xPts` : "xPts",
         size: 104,
         sortUndefined: "last",
         cell: ({ getValue }) => {
@@ -415,7 +557,12 @@ export function PlayerExplorer() {
           return value == null ? (
             <EmptyForecastCell />
           ) : (
-            <span className="fpl-data rounded-md bg-forecast/10 px-1.5 py-0.5 font-black text-forecast">
+            <span
+              className={cn(
+                "fpl-data font-black",
+                forecastValueTone(value, forecastColorRanges.total),
+              )}
+            >
               {value.toFixed(1)}
             </span>
           );
@@ -429,7 +576,15 @@ export function PlayerExplorer() {
         cell: ({ getValue }) => {
           const range = getValue();
           return range ? (
-            <span className="fpl-data text-muted-foreground">
+            <span
+              className={cn(
+                "fpl-data",
+                forecastValueTone(
+                  (range.lower + range.upper) / 2,
+                  forecastColorRanges.range,
+                ),
+              )}
+            >
               {range.lower.toFixed(1)}–{range.upper.toFixed(1)}
             </span>
           ) : (
@@ -447,7 +602,16 @@ export function PlayerExplorer() {
           return value == null ? (
             <EmptyForecastCell />
           ) : (
-            <span className="fpl-data text-muted-foreground">
+            <span
+              className={cn(
+                "fpl-data",
+                forecastValueTone(
+                  value,
+                  forecastColorRanges.seasonValue,
+                  "lower",
+                ),
+              )}
+            >
               {value.toFixed(2)}
             </span>
           );
@@ -463,7 +627,16 @@ export function PlayerExplorer() {
           return value == null ? (
             <EmptyForecastCell />
           ) : (
-            <span className="fpl-data font-bold text-forecast">
+            <span
+              className={cn(
+                "fpl-data font-bold",
+                forecastValueTone(
+                  value,
+                  forecastColorRanges.forecastValue,
+                  "lower",
+                ),
+              )}
+            >
               {value.toFixed(2)}
             </span>
           );
@@ -481,6 +654,13 @@ export function PlayerExplorer() {
           <ForecastCell
             forecast={row.original.forecasts[gameweek]}
             gameweek={gameweek}
+            tone={forecastValueTone(
+              row.original.forecasts[gameweek]?.xPts,
+              forecastColorRanges.byGameweek.get(gameweek) ?? {
+                min: 0,
+                max: 0,
+              },
+            )}
           />
         ),
       }),
@@ -525,10 +705,16 @@ export function PlayerExplorer() {
     });
 
     return [...base, ...forecastColumns, decisionColumn];
-  }, [gameweeks, selectedPlayers, showDetails, toggleComparison]);
+  }, [
+    forecastColorRanges,
+    gameweeks,
+    selectedPlayers,
+    showDetails,
+    toggleComparison,
+  ]);
 
   const table = useReactTable({
-    data: filteredResult.rows,
+    data: filteredPlayers,
     columns,
     state: { sorting, columnVisibility, columnPinning: pinnedColumns },
     onSortingChange: setSorting,
@@ -539,12 +725,13 @@ export function PlayerExplorer() {
   });
 
   const rows = table.getRowModel().rows;
-  const rowHeight = density === "compact" ? 42 : 54;
+  const rowHeight = density === "compact" ? 52 : 64;
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => rowHeight,
-    overscan: 12,
+    getItemKey: (index) => rows[index]?.id ?? index,
+    overscan: 5,
   });
   const virtualRows = virtualizer.getVirtualItems();
 
@@ -584,31 +771,45 @@ export function PlayerExplorer() {
 
   return (
     <section aria-labelledby="player-explorer-title" data-density={density}>
-      <div className="mb-6 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-        <div>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
-              {predictionSource === "ROLLING_NEXT_5"
-                ? "Internal next-5 preview"
-                : "Internal GW1 preview"}
-            </Badge>
-            <span className="text-xs font-semibold text-stale">
-              2026/27 roster · rolling internal estimate · not published
-            </span>
-          </div>
-          <h1
-            id="player-explorer-title"
-            className="text-3xl font-black tracking-[-0.035em] sm:text-4xl"
-          >
+      <div className="mb-4 flex flex-col justify-between gap-3 xl:flex-row xl:items-center">
+        <div className="flex items-center gap-1">
+          <h1 id="player-explorer-title" className="text-2xl font-black">
             Player Explorer
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Scan the canonical 2026/27 player pool. Forecasts are calculated
-            fixture by fixture and will refresh after official FPL syncs.
-          </p>
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Forecast evidence and methodology"
+                  title="Forecast evidence and methodology"
+                >
+                  <CircleHelp aria-hidden="true" />
+                </Button>
+              }
+            />
+            <PopoverContent align="start" className="w-80 text-xs leading-5">
+              <PopoverHeader>
+                <PopoverTitle>Forecast evidence</PopoverTitle>
+              </PopoverHeader>
+              <p className="mt-2 text-muted-foreground">
+                {predictionSource === "ROLLING_NEXT_5"
+                  ? "Forecasts update fixture by fixture after official FPL syncs."
+                  : "Pre-season forecasts remain an internal prior-based preview until the season begins."}{" "}
+                {methodology}
+              </p>
+              {predictionStatus === "PREVIEW_ONLY" && (
+                <p className="mt-2 text-muted-foreground">
+                  Opponent strength, clean-sheet and bonus effects are not yet
+                  included in the pre-season estimate.
+                </p>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
-        <dl className="grid grid-cols-3 border border-border bg-card text-right">
-          <div className="border-r border-border px-3 py-2">
+        <dl className="grid grid-cols-2 text-right">
+          <div className="border-r border-border px-3 py-1">
             <dt className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
               Roster
             </dt>
@@ -616,20 +817,12 @@ export function PlayerExplorer() {
               {players.length}
             </dd>
           </div>
-          <div className="border-r border-border px-3 py-2">
+          <div className="px-3 py-1">
             <dt className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
               Visible
             </dt>
             <dd className="fpl-data mt-0.5 text-lg font-black">
               {rows.length}
-            </dd>
-          </div>
-          <div className="px-3 py-2">
-            <dt className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-              Filter
-            </dt>
-            <dd className="fpl-data mt-0.5 text-lg font-black">
-              {filteredResult.duration.toFixed(1)}ms
             </dd>
           </div>
         </dl>
@@ -714,7 +907,6 @@ export function PlayerExplorer() {
               onValueChange={(value) => setDensity(value as Density)}
             >
               <SelectTrigger aria-label="Table density" className="w-32">
-                <Gauge className="size-3.5" aria-hidden="true" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -724,10 +916,18 @@ export function PlayerExplorer() {
             </Select>
 
             <Popover>
-              <PopoverTrigger render={<Button variant="outline" />}>
-                <Columns3 data-icon="inline-start" aria-hidden="true" />
-                Columns
-              </PopoverTrigger>
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label="Choose visible columns"
+                    title="Choose visible columns"
+                  >
+                    <Columns3 aria-hidden="true" />
+                  </Button>
+                }
+              />
               <PopoverContent align="end" className="w-52">
                 <PopoverHeader>
                   <PopoverTitle>Visible columns</PopoverTitle>
@@ -750,7 +950,7 @@ export function PlayerExplorer() {
                           className="accent-primary"
                         />
                         <span>
-                          {column.id.replace("forecastTotal", "Next xPts")}
+                          {column.id.replace("forecastTotal", "5 GW xPts")}
                         </span>
                       </label>
                     ))}
@@ -759,20 +959,6 @@ export function PlayerExplorer() {
             </Popover>
           </div>
         </div>
-
-        {predictionStatus === "PREVIEW_ONLY" && (
-          <div className="flex items-start gap-2 border-b border-border bg-uncertainty/8 px-3 py-2 text-xs text-muted-foreground">
-            <ShieldAlert
-              className="mt-0.5 size-4 shrink-0 text-uncertainty"
-              aria-hidden="true"
-            />
-            <span>
-              GW1 only: this is a prior-based pre-season estimate. Opponent
-              strength, clean-sheet and bonus effects are excluded until 2026/27
-              evidence is available. {methodology}
-            </span>
-          </div>
-        )}
 
         {!gameweeks.length && (
           <div className="flex items-center gap-2 border-b border-border bg-uncertainty/8 px-3 py-2 text-xs text-muted-foreground">
@@ -840,13 +1026,13 @@ export function PlayerExplorer() {
 
         <div
           ref={scrollRef}
-          className="relative h-[min(72dvh,56rem)] overflow-auto"
+          className="relative h-[min(80dvh,64rem)] overflow-auto"
           role="region"
           aria-label="Scrollable player table"
           tabIndex={0}
         >
           <table
-            className="relative grid border-collapse text-xs"
+            className="relative grid border-collapse text-sm"
             style={{ minWidth: table.getTotalSize() }}
           >
             <thead className="sticky top-0 z-20 grid border-b border-border bg-card">
@@ -867,7 +1053,7 @@ export function PlayerExplorer() {
                               : "none"
                         }
                         className={cn(
-                          "flex h-10 shrink-0 items-center border-r border-border bg-card px-3 text-left text-[10px] font-black tracking-[0.08em] text-muted-foreground uppercase last:border-r-0",
+                          "flex h-12 shrink-0 items-center border-r border-border bg-card px-3 text-left text-xs font-black tracking-[0.08em] text-muted-foreground uppercase last:border-r-0",
                           forecastColumn && "justify-center text-center",
                           header.column.getIsPinned() &&
                             "shadow-[1px_0_0_var(--border)]",
@@ -923,43 +1109,16 @@ export function PlayerExplorer() {
               {virtualRows.map((virtualRow) => {
                 const row = rows[virtualRow.index];
                 return (
-                  <tr
+                  <ExplorerTableRow
                     key={row.id}
-                    data-index={virtualRow.index}
-                    ref={(node) => virtualizer.measureElement(node)}
-                    className={cn(
-                      "absolute flex w-full border-b border-border/75 bg-card/90 transition-colors hover:bg-muted/70",
-                      selectedPlayers.some(
-                        (player) => player.id === row.original.id,
-                      ) && "bg-primary/6 shadow-[inset_3px_0_0_var(--primary)]",
+                    row={row}
+                    start={virtualRow.start}
+                    rowHeight={rowHeight}
+                    selected={selectedPlayers.some(
+                      (player) => player.id === row.original.id,
                     )}
-                    style={{
-                      minHeight: rowHeight,
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td
-                        key={cell.id}
-                        className={cn(
-                          "flex shrink-0 items-center justify-end overflow-hidden border-r border-border bg-inherit px-3 last:border-r-0 first:justify-start",
-                          isForecastColumn(cell.column.id) &&
-                            "justify-center text-center",
-                          cell.column.getIsPinned() &&
-                            "shadow-[1px_0_0_var(--border)]",
-                        )}
-                        style={{
-                          width: cell.column.getSize(),
-                          ...columnPinStyles(cell.column),
-                        }}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </td>
-                    ))}
-                  </tr>
+                    forecastColorRanges={forecastColorRanges}
+                  />
                 );
               })}
             </tbody>
@@ -970,17 +1129,6 @@ export function PlayerExplorer() {
               No players match the current filters.
             </div>
           )}
-        </div>
-
-        <div className="flex flex-col justify-between gap-2 border-t border-border px-3 py-2 text-[11px] text-muted-foreground sm:flex-row sm:items-center">
-          <span>
-            Rendering {virtualRows.length} of {rows.length} filtered rows · two
-            identity columns pinned
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Gauge className="size-3.5" aria-hidden="true" />
-            Virtual window {virtualizer.getTotalSize().toLocaleString()}px
-          </span>
         </div>
       </div>
 
@@ -993,6 +1141,7 @@ export function PlayerExplorer() {
           detailPlayer != null &&
           selectedPlayers.some((player) => player.id === detailPlayer.id)
         }
+        forecastColorRanges={forecastColorRanges}
         onToggleCompare={toggleComparison}
         override={detailPlayer ? (overrides[detailPlayer.id] ?? null) : null}
         onOverrideChange={handleOverrideChange}

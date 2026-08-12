@@ -14,7 +14,7 @@ export const preseasonSquadDraftStateSchema = z
     starterIds: z.array(playerIdSchema).max(11),
     captainId: playerIdSchema.nullable(),
     viceCaptainId: playerIdSchema.nullable(),
-    bank: z.number().int().min(0).max(1000),
+    bank: z.number().int().min(-2000).max(1000),
   })
   .superRefine((state, context) => {
     if (!unique(state.playerIds)) {
