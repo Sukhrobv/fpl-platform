@@ -27,6 +27,50 @@ test("tracker CSV preserves quoted fields and validates minute totals", () => {
   assert.equal(derivePreseasonMinutesCap(team.players[0]), 90);
 });
 
+test("tracker uses match-minute columns when one friendly is missing from total", () => {
+  const team = parseTrackerTeamCsv({
+    teamCode: "AVL",
+    gid: "4",
+    csv: [
+      "ASTON VILLA",
+      "Name,Price,Position,v One,v Two,TOTAL,%,Goals",
+      "Example Player,45,DEF,45,72,72,40.0%,0",
+    ].join("\n"),
+  });
+  assert.equal(team.players[0].totalMinutes, 117);
+  assert.equal(team.players[0].participationRate, 0.65);
+});
+
+test("tracker preserves an extended friendly without exceeding FPL minutes", () => {
+  const team = parseTrackerTeamCsv({
+    teamCode: "LEE",
+    gid: "5",
+    csv: [
+      "LEEDS",
+      "Name,Price,Position,v One,v Two,TOTAL,%,Goals",
+      "Example Goalkeeper,45,GK,90,120,210,116.7%,0",
+    ].join("\n"),
+  });
+  assert.deepEqual(team.players[0].matchMinutes, [90, 120]);
+  assert.equal(team.players[0].possibleMinutes, 210);
+  assert.equal(team.players[0].participationRate, 1);
+  assert.equal(derivePreseasonMinutesCap(team.players[0]), 90);
+});
+
+test("tracker still rejects a material mismatch in total minutes", () => {
+  assert.throws(() =>
+    parseTrackerTeamCsv({
+      teamCode: "AVL",
+      gid: "4",
+      csv: [
+        "ASTON VILLA",
+        "Name,Price,Position,v One,v Two,TOTAL,%,Goals",
+        "Example Player,45,DEF,45,72,250,83.3%,0",
+      ].join("\n"),
+    }),
+  );
+});
+
 test("zero pre-season minutes do not assert zero league minutes", () => {
   const team = parseTrackerTeamCsv({
     teamCode: "MCI",

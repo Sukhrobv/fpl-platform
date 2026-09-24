@@ -92,7 +92,7 @@ interface PredictionsResponse {
   gameweeks?: number[];
   predictions?: PredictionPayload[];
   source?: "GW1_PRESEASON_PREVIEW" | "ROLLING_NEXT_5";
-  status?: "PREVIEW_ONLY" | "NOT_READY";
+  status?: "ACTIVE" | "PREVIEW_ONLY" | "NOT_READY";
   methodology?: string;
 }
 
@@ -592,7 +592,7 @@ export function PlayerExplorer() {
           );
         },
       }),
-      columnHelper.accessor("costPerSeasonPoint", {
+      columnHelper.accessor((row) => row.costPerSeasonPoint ?? undefined, {
         id: "seasonValue",
         header: "£m / pt",
         size: 96,
@@ -617,7 +617,7 @@ export function PlayerExplorer() {
           );
         },
       }),
-      columnHelper.accessor("costPerForecastPoint", {
+      columnHelper.accessor((row) => row.costPerForecastPoint ?? undefined, {
         id: "forecastValue",
         header: "£m / xPt",
         size: 102,
@@ -795,7 +795,9 @@ export function PlayerExplorer() {
               </PopoverHeader>
               <p className="mt-2 text-muted-foreground">
                 {predictionSource === "ROLLING_NEXT_5"
-                  ? "Forecasts update fixture by fixture after official FPL syncs."
+                  ? predictionStatus === "ACTIVE"
+                    ? "Active forecasts update fixture by fixture after official FPL syncs."
+                    : "Forecasts update fixture by fixture after official FPL syncs."
                   : "Pre-season forecasts remain an internal prior-based preview until the season begins."}{" "}
                 {methodology}
               </p>

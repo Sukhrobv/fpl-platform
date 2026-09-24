@@ -9,6 +9,7 @@ import {
   CopyPlus,
   Crown,
   FilePlus2,
+  Link2,
   LoaderCircle,
   Plus,
   Search,
@@ -51,11 +52,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TeamMark } from "@/components/decision/DecisionPrimitives";
+import { useFplSettings } from "@/contexts/FplSettingsContext";
 
 type Position = PreseasonPosition;
 
 interface PreviewPlayer {
   seasonPlayerId: number;
+  fplId: number;
   playerName: string;
   team: string;
   position: Position;
@@ -77,6 +80,7 @@ interface GameweekForecast {
   fixture: string;
   opponent: string;
   isHome: boolean;
+  range?: { lower: number; upper: number };
 }
 
 interface PreviewResponse {
@@ -90,6 +94,15 @@ interface PredictionsResponse {
   predictions: Array<{
     playerId: number;
     history: Record<number, GameweekForecast>;
+  }>;
+}
+
+interface LinkedSquadResponse {
+  picks: Array<{
+    position: number;
+    isCaptain: boolean;
+    isViceCaptain: boolean;
+    player: { fplId: number };
   }>;
 }
 
@@ -177,6 +190,33 @@ function forecastedFiveGameweekXPts(
     .reduce((total, gameweek) => total + forecastedXPts(player, gameweek), 0);
 }
 
+function forecastedFiveGameweekRange(
+  player: PreviewPlayer,
+  gameweeks: readonly number[],
+) {
+  const ranges = gameweeks
+    .slice(0, 5)
+    .map((gameweek) => player.forecasts?.[gameweek]?.range)
+    .filter((range): range is { lower: number; upper: number } => range != null);
+  if (ranges.length !== Math.min(5, gameweeks.length)) return null;
+  return ranges.reduce(
+    (total, range) => ({
+      lower: total.lower + range.lower,
+      upper: total.upper + range.upper,
+    }),
+    { lower: 0, upper: 0 },
+  );
+}
+
+function hasWideForecastRange(
+  range: { lower: number; upper: number } | null,
+  totalXPts: number,
+) {
+  if (!range) return false;
+  const width = range.upper - range.lower;
+  return width >= 6 && width >= Math.max(4, totalXPts * 0.5);
+}
+
 interface ForecastValueRange {
   min: number;
   max: number;
@@ -262,6 +302,10 @@ const SquadForecastTableRow = memo(function SquadForecastTableRow({
   onChoosePlayer: (player: PreviewPlayer) => void;
 }) {
   const fiveGameweekXPts = forecastedFiveGameweekXPts(player, gameweeks);
+  const hasWideRange = hasWideForecastRange(
+    forecastedFiveGameweekRange(player, gameweeks),
+    fiveGameweekXPts,
+  );
   const difference =
     activeSlotFiveGameweekXPts == null
       ? null
@@ -278,6 +322,15 @@ const SquadForecastTableRow = memo(function SquadForecastTableRow({
       <span className="flex min-w-0 items-center gap-2">
         <TeamMark shortName={player.team} name={player.team} size="sm" />
         <span className="min-w-0 truncate font-bold">{player.playerName}</span>
+        {hasWideRange ? (
+          <span
+            className="inline-flex shrink-0"
+            aria-label="Wide indicative range"
+            title="Wide indicative range: outcomes can vary substantially around the projection"
+          >
+            <AlertTriangle className="size-3 text-uncertainty" aria-hidden="true" />
+          </span>
+        ) : null}
       </span>
       <span className="fpl-data text-right text-muted-foreground">
         {(player.price / 10).toFixed(1)}
@@ -467,6 +520,7 @@ function decisionRating(assessment: SquadAssessment) {
 }
 
 export function Gw1SquadBuilder() {
+  const { fplId } = useFplSettings();
   const [players, setPlayers] = useState<PreviewPlayer[]>([]);
   const [snapshot, setSnapshot] = useState<PreviewResponse["snapshot"] | null>(
     null,
@@ -549,6 +603,51 @@ export function Gw1SquadBuilder() {
     [],
   );
 
+  const restoreLinkedSquad = useCallback(
+    (linkedSquad: LinkedSquadResponse, playerPool: PreviewPlayer[]) => {
+      const seasonPlayerIdsByFplId = new Map(
+        playerPool.map((player) => [player.fplId, player.seasonPlayerId]),
+      );
+      const mappedPicks = linkedSquad.picks
+        .map((pick) => {
+          const seasonPlayerId = seasonPlayerIdsByFplId.get(pick.player.fplId);
+          return seasonPlayerId == null ? null : { ...pick, seasonPlayerId };
+        })
+        .filter(
+          (pick): pick is LinkedSquadResponse["picks"][number] & {
+            seasonPlayerId: number;
+          } => pick != null,
+        );
+      const playerIds = normalizePreviewSquadIds(
+        mappedPicks.map((pick) => pick.seasonPlayerId),
+        playerPool,
+      );
+      if (playerIds.length !== 15 || mappedPicks.length !== 15) {
+        throw new Error(
+          "The linked FPL squad cannot be matched to the current player pool.",
+        );
+      }
+      const starterIds = mappedPicks
+        .filter((pick) => pick.position <= 11)
+        .map((pick) => pick.seasonPlayerId);
+      const captainId = mappedPicks.find((pick) => pick.isCaptain)?.seasonPlayerId ?? null;
+      const viceCaptainId =
+        mappedPicks.find((pick) => pick.isViceCaptain)?.seasonPlayerId ?? null;
+      if (starterIds.length !== 11 || captainId == null || viceCaptainId == null) {
+        throw new Error("The linked FPL squad is missing its lineup or captaincy.");
+      }
+      setSelectedIds(playerIds);
+      setStarterIds(starterIds);
+      setCaptainId(captainId);
+      setViceCaptainId(viceCaptainId);
+      setSelectionHistory([]);
+      setAutoPick(null);
+      setAutoPickError(null);
+      setActiveSlot({ position: "GOALKEEPER", index: 0 });
+    },
+    [],
+  );
+
   useEffect(() => {
     let active = true;
     async function loadPreview() {
@@ -614,6 +713,16 @@ export function Gw1SquadBuilder() {
           predictionsPayload.gameweeks.length
             ? predictionsPayload.gameweeks
             : [1];
+        let linkedSquad: LinkedSquadResponse | null = null;
+        if (fplId && loadedDrafts[0]?.state.playerIds.length === 0) {
+          const linkedResponse = await fetch(`/api/personal/${fplId}/squad`);
+          if (linkedResponse.ok) {
+            const linkedPayload = await readApiJson<LinkedSquadResponse>(
+              linkedResponse,
+            );
+            if ("picks" in linkedPayload) linkedSquad = linkedPayload;
+          }
+        }
         if (!active) return;
         setPlayers(playerPool);
         setSnapshot(payload.snapshot);
@@ -621,7 +730,11 @@ export function Gw1SquadBuilder() {
         setActiveGameweek(availableGameweeks[0] ?? 1);
         setDrafts(loadedDrafts);
         setActiveDraftId(loadedDrafts[0].id);
-        restoreDraft(loadedDrafts[0], playerPool);
+        if (linkedSquad) {
+          restoreLinkedSquad(linkedSquad, playerPool);
+        } else {
+          restoreDraft(loadedDrafts[0], playerPool);
+        }
         setDraftsReady(true);
       } catch (loadError) {
         if (active) {
@@ -639,7 +752,7 @@ export function Gw1SquadBuilder() {
     return () => {
       active = false;
     };
-  }, [restoreDraft]);
+  }, [fplId, restoreDraft, restoreLinkedSquad]);
 
   const selected = useMemo(
     () =>
@@ -1027,6 +1140,30 @@ export function Gw1SquadBuilder() {
       return false;
     }
   }, [activeDraftId, draftState]);
+
+  const loadLinkedSquad = useCallback(async () => {
+    if (!fplId || !players.length) return;
+    try {
+      const response = await fetch(`/api/personal/${fplId}/squad`);
+      const payload = await readApiJson<LinkedSquadResponse>(response);
+      if (!response.ok || !("picks" in payload)) {
+        throw new Error(
+          "error" in payload
+            ? payload.error
+            : "Could not load the linked FPL squad.",
+        );
+      }
+      restoreLinkedSquad(payload, players);
+      setSaveError(null);
+    } catch (loadFailure) {
+      setSaveStatus("error");
+      setSaveError(
+        loadFailure instanceof Error
+          ? loadFailure.message
+          : "Could not load the linked FPL squad.",
+      );
+    }
+  }, [fplId, players, restoreLinkedSquad]);
 
   useEffect(() => {
     if (!draftsReady || activeDraftId == null) return;
@@ -1525,6 +1662,20 @@ export function Gw1SquadBuilder() {
             >
               <Undo2 aria-hidden="true" />
               Undo
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadLinkedSquad()}
+              disabled={!fplId || !players.length}
+              title={
+                fplId
+                  ? "Replace this draft with the squad stored for the linked FPL account"
+                  : "Add an FPL ID in Settings to load a linked squad"
+              }
+            >
+              <Link2 aria-hidden="true" />
+              Load linked team
             </Button>
             <Button onClick={applyBalancedAutoPick} disabled={!players.length}>
               <Sparkles aria-hidden="true" />

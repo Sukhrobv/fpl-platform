@@ -52,6 +52,15 @@ export interface ForecastRange {
   label: "INDICATIVE";
 }
 
+export function hasWideForecastRange(
+  range: ForecastRange | null | undefined,
+  totalXPts: number | null | undefined,
+) {
+  if (!range || totalXPts == null) return false;
+  const width = range.upper - range.lower;
+  return width >= 6 && width >= Math.max(4, totalXPts * 0.5);
+}
+
 export interface FixturePlan {
   fixture: string;
   opponent: string;

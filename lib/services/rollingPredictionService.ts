@@ -29,7 +29,7 @@ import {
 import { FPL_HISTORICAL_H2H_SOURCE } from "@/lib/services/fplHistoricalH2hService";
 
 export const ROLLING_PREDICTION_DATASET = "rolling-next-5-prediction-preview";
-export const ROLLING_PREDICTION_VERSION = "rolling-next-5-v3";
+export const ROLLING_PREDICTION_VERSION = "rolling-next-5-v4";
 
 export interface H2hRateAdjustment {
   sourceSeason: string | null;
@@ -92,8 +92,69 @@ export interface RollingPredictionPayload {
     readinessSnapshotId: number;
     bootstrapSnapshotId: number | null;
     trackerSnapshotId: number | null;
+    lateRegistrationProfiles: number;
   };
   projections: RollingPlayerProjection[];
+}
+
+interface LateRegistrationPrior {
+  minutes: number;
+  appearances: number;
+  starts: number | null;
+  confidenceScore: number;
+  xG90: number | null;
+  xA90: number | null;
+  touches90: number | null;
+  keyPasses90: number | null;
+  carries90: number | null;
+  defconActions90: number | null;
+  clearances90: number | null;
+}
+
+export function buildLateRegistrationProfile(input: {
+  seasonPlayerId: number;
+  fplId: number;
+  playerId: number;
+  playerName: string;
+  team: string;
+  position: Gw1PreseasonProfile["position"];
+  price: number;
+  availability: { status: string | null; chanceOfPlaying: number | null };
+  prior: LateRegistrationPrior | null;
+}): Gw1PreseasonProfile {
+  const prior = input.prior;
+  return {
+    seasonPlayerId: input.seasonPlayerId,
+    fplId: input.fplId,
+    playerId: input.playerId,
+    playerName: input.playerName,
+    team: input.team,
+    position: input.position,
+    price: input.price,
+    availability: {
+      status: input.availability.status ?? "unknown",
+      chanceOfPlaying: input.availability.chanceOfPlaying,
+    },
+    gw1Fixtures: [],
+    provenance: prior ? "PLAYER_PRIOR" : "POSITION_BASELINE",
+    confidence: "LOW",
+    confidenceScore: Math.min(prior?.confidenceScore ?? 0.35, 0.45),
+    uncertaintyReasons: ["LATE_FPL_REGISTRATION"],
+    priorMetrics: {
+      xG90: prior?.xG90 ?? null,
+      xA90: prior?.xA90 ?? null,
+      touches90: prior?.touches90 ?? null,
+      keyPasses90: prior?.keyPasses90 ?? null,
+      carries90: prior?.carries90 ?? null,
+      defconActions90: prior?.defconActions90 ?? null,
+      clearances90: prior?.clearances90 ?? null,
+    },
+    priorUsage: {
+      minutes: prior?.minutes ?? 0,
+      appearances: prior?.appearances ?? 0,
+      starts: prior?.starts ?? null,
+    },
+  };
 }
 
 function clamp(value: number, lower: number, upper: number) {
@@ -164,11 +225,11 @@ export function blendCurrentRate(input: {
   shrinkageMinutes?: number;
 }) {
   if (input.current == null) return input.prior;
-  if (input.prior == null) return input.current;
   const weight =
     input.currentMinutes /
     (input.currentMinutes + (input.shrinkageMinutes ?? 540));
-  return input.current * weight + input.prior * (1 - weight);
+  // A first observed rate without a PL prior is still only one match of evidence.
+  return input.current * weight + (input.prior ?? 0) * (1 - weight);
 }
 
 export function rollingStartProbability(input: {
@@ -371,6 +432,7 @@ export class RollingPredictionService {
     const priorConfig = await this.prisma.predictionConfigVersion.findUnique({
       where: { version: readiness.priorVersion },
       select: {
+        id: true,
         sourceSeasonId: true,
         sourceSeason: { select: { code: true } },
       },
@@ -412,6 +474,8 @@ export class RollingPredictionService {
       currentStats,
       sourceStats,
       h2hStats,
+      currentSeasonPlayers,
+      targetPriors,
     ] = await Promise.all([
       this.prisma.seasonTeam.findMany({
         where: { seasonId: targetSeason.id },
@@ -504,6 +568,41 @@ export class RollingPredictionService {
         },
         orderBy: { matchDate: "desc" },
       }),
+      this.prisma.seasonPlayer.findMany({
+        where: { seasonId: targetSeason.id, active: true },
+        select: {
+          id: true,
+          fplId: true,
+          playerId: true,
+          position: true,
+          nowCost: true,
+          status: true,
+          chanceOfPlaying: true,
+          player: { select: { webName: true } },
+          seasonTeam: { select: { shortName: true } },
+        },
+      }),
+      this.prisma.playerSeasonPrior.findMany({
+        where: {
+          sourceSeasonId: priorConfig.sourceSeasonId,
+          configVersionId: priorConfig.id,
+          targetSeasonCode: targetSeason.code,
+        },
+        select: {
+          playerId: true,
+          minutes: true,
+          appearances: true,
+          starts: true,
+          confidenceScore: true,
+          xG90: true,
+          xA90: true,
+          touches90: true,
+          keyPasses90: true,
+          carries90: true,
+          defconActions90: true,
+          clearances90: true,
+        },
+      }),
     ]);
 
     const currentStatsBySeasonPlayerId = new Map(
@@ -512,6 +611,31 @@ export class RollingPredictionService {
     const sourceStatsByPlayerId = new Map(
       sourceStats.map((row) => [row.playerId, row]),
     );
+    const targetPriorsByPlayerId = new Map(
+      targetPriors.map((prior) => [prior.playerId, prior]),
+    );
+    const readinessPlayerIds = new Set(
+      readiness.profiles.map((profile) => profile.seasonPlayerId),
+    );
+    const lateRegistrationProfiles = currentSeasonPlayers
+      .filter((player) => !readinessPlayerIds.has(player.id))
+      .map((player) =>
+        buildLateRegistrationProfile({
+          seasonPlayerId: player.id,
+          fplId: player.fplId,
+          playerId: player.playerId,
+          playerName: player.player.webName,
+          team: player.seasonTeam.shortName,
+          position: player.position,
+          price: player.nowCost,
+          availability: {
+            status: player.status,
+            chanceOfPlaying: player.chanceOfPlaying,
+          },
+          prior: targetPriorsByPlayerId.get(player.playerId) ?? null,
+        }),
+      );
+    const profiles = [...readiness.profiles, ...lateRegistrationProfiles];
     const h2hByPlayerOpponent = new Map<
       string,
       Array<{
@@ -578,7 +702,7 @@ export class RollingPredictionService {
         })
       : new Map<number, PreseasonMinutesTrackerEvidence>();
     const rawStartProbabilityBySeasonPlayerId = new Map(
-      readiness.profiles.map((profile) => {
+      profiles.map((profile) => {
         const current = currentStatsBySeasonPlayerId.get(
           profile.seasonPlayerId,
         );
@@ -602,7 +726,7 @@ export class RollingPredictionService {
     >();
     for (const gameweek of horizonGameweeks) {
       const constrainedLineups = constrainTeamLineupProbabilities(
-        readiness.profiles.map((profile) => {
+        profiles.map((profile) => {
           const override = overridesBySeasonPlayerId.get(
             profile.seasonPlayerId,
           );
@@ -636,7 +760,7 @@ export class RollingPredictionService {
           };
         }),
       );
-      for (const profile of readiness.profiles) {
+      for (const profile of profiles) {
         const override = overridesBySeasonPlayerId.get(profile.seasonPlayerId);
         const manualOverride =
           override && isActiveForGameweek(override, gameweek)
@@ -669,7 +793,7 @@ export class RollingPredictionService {
       }
     }
 
-    const projections = readiness.profiles.map((profile) => {
+    const projections = profiles.map((profile) => {
       const current = currentStatsBySeasonPlayerId.get(profile.seasonPlayerId);
       const bootstrap = currentBootstrapRates.get(profile.fplId);
       const source = sourceStatsByPlayerId.get(profile.playerId);
@@ -930,6 +1054,7 @@ export class RollingPredictionService {
           ? (bootstrapSnapshot?.id ?? null)
           : null,
         trackerSnapshotId: trackerSnapshot?.id ?? null,
+        lateRegistrationProfiles: lateRegistrationProfiles.length,
       },
       projections: projections.sort(
         (left, right) =>

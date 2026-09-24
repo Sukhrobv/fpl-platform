@@ -255,7 +255,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 aria-hidden="true"
               />
               <span className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                Pre-season · 2026/27
+                Season 2026/27
               </span>
             </div>
           </div>

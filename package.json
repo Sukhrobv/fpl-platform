@@ -23,6 +23,7 @@
     "preview:gw1": "tsx scripts/build-gw1-preseason-preview.ts",
     "preview:rolling": "tsx scripts/build-rolling-prediction-preview.ts",
     "audit:gw1": "tsx scripts/audit-gw1-preseason-preview.ts",
+    "audit:rolling": "tsx scripts/audit-rolling-prediction-preview.ts",
     "audit:history": "tsx scripts/audit-historical-walk-forward.ts",
     "test": "tsx --test tests/**/*.test.ts"
   },

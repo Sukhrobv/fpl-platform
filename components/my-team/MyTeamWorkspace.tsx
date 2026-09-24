@@ -535,8 +535,8 @@ function EmptyTeam({
           Connect your team
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Load a saved squad now. A fresh sync will use the official FPL API
-          only when the season endpoint is ready.
+          Pin your public FPL Team ID to load the current squad from the
+          official FPL API.
         </p>
         <form onSubmit={onSubmit} className="mt-6 flex gap-2">
           <label className="flex-1 text-left">

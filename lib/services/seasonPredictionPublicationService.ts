@@ -637,7 +637,9 @@ const previewProjectionSchema = z.object({
   seasonPlayerId: z.number().int().positive(),
   fplId: z.number().int().positive(),
   confidence: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  totalXPts: z.number().nonnegative(),
+  // FPL awards negative points, so an expected score may also be negative when
+  // the conceded-goal penalty outweighs the positive components.
+  totalXPts: z.number().finite(),
 });
 
 const previewPayloadSchema = z.object({
@@ -1069,14 +1071,20 @@ export class SeasonPredictionPublicationService {
         `GW1 audit requires complete official player-fixture stats (${eventStats.length}/${totalFixtures * 20} minimum)`,
       );
     }
+    const previewPlayerIds = new Set(
+      preview.projections.map((projection) => projection.seasonPlayerId),
+    );
+    const currentRegistrationIds = new Set(
+      registrations.map((registration) => registration.id),
+    );
     if (
-      preview.projections.length !== registrations.length ||
-      new Set(
-        preview.projections.map((projection) => projection.seasonPlayerId),
-      ).size !== registrations.length
+      previewPlayerIds.size !== preview.projections.length ||
+      [...previewPlayerIds].some(
+        (seasonPlayerId) => !currentRegistrationIds.has(seasonPlayerId),
+      )
     ) {
       throw new Error(
-        "Preview roster no longer matches the target season roster",
+        "Preview roster contains duplicate or no-longer-valid season players",
       );
     }
     const actualPoints = new Map(

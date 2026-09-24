@@ -5,10 +5,16 @@ export const PRESEASON_MINUTES_TRACKER_DATASET = "preseason-minutes-tracker";
 export const PRESEASON_MINUTES_TRACKER_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQxLUOCYma3wQTzz7r8rliQgktSmMzgeeWS2eG3KYnEdFPQwbArhGaN3I2vz2Nr8lD_omwqrCjPsAmb/pubhtml?widget=true&headers=false";
 
+// The sheet's TOTAL is a manually maintained display field. A new friendly can
+// be appended before that aggregate is refreshed, so match columns remain the
+// source of truth and one fixture of drift is tolerated.
+const TOTAL_MINUTES_TOLERANCE = 90;
+const MAX_TRACKER_MATCH_MINUTES = 120;
+
 const trackerPlayerSchema = z.object({
   playerName: z.string().min(1),
   position: z.string().min(1),
-  matchMinutes: z.array(z.number().int().min(0).max(90)),
+  matchMinutes: z.array(z.number().int().min(0).max(MAX_TRACKER_MATCH_MINUTES)),
   totalMinutes: z.number().int().min(0),
   possibleMinutes: z.number().int().nonnegative(),
   participationRate: z.number().min(0).max(1),
@@ -149,8 +155,7 @@ export function parseTrackerTeamCsv(input: {
         index > positionIndex && index < totalIndex && value.length > 0,
     )
     .map(({ index }) => index);
-  const possibleMinutes = minuteIndexes.length * 90;
-  const players = rows
+  const rawPlayers = rows
     .slice(headerIndex + 1)
     .map((row) => {
       const playerName = (row[nameIndex] ?? "").trim();
@@ -160,12 +165,12 @@ export function parseTrackerTeamCsv(input: {
         const value = (row[index] ?? "").trim();
         return value ? parseInteger(value, `${playerName} minutes`) : 0;
       });
-      if (matchMinutes.some((minutes) => minutes > 90)) {
+      if (matchMinutes.some((minutes) => minutes > MAX_TRACKER_MATCH_MINUTES)) {
         throw new PreseasonMinutesTrackerCollectorError(
-          `Tracker tab ${input.teamCode} has a minute value above 90 for ${playerName}`,
+          `Tracker tab ${input.teamCode} has a minute value above ${MAX_TRACKER_MATCH_MINUTES} for ${playerName}`,
         );
       }
-      const totalMinutes = parseInteger(
+      const listedTotalMinutes = parseInteger(
         row[totalIndex] ?? "",
         `${playerName} total minutes`,
       );
@@ -173,7 +178,10 @@ export function parseTrackerTeamCsv(input: {
         (sum, minutes) => sum + minutes,
         0,
       );
-      if (totalMinutes !== calculatedTotal || totalMinutes > possibleMinutes) {
+      if (
+        Math.abs(listedTotalMinutes - calculatedTotal) >
+        TOTAL_MINUTES_TOLERANCE
+      ) {
         throw new PreseasonMinutesTrackerCollectorError(
           `Tracker tab ${input.teamCode} has inconsistent total minutes for ${playerName}`,
         );
@@ -182,17 +190,34 @@ export function parseTrackerTeamCsv(input: {
         playerName,
         position,
         matchMinutes,
-        totalMinutes,
-        possibleMinutes,
-        participationRate:
-          possibleMinutes === 0
-            ? 0
-            : Number((totalMinutes / possibleMinutes).toFixed(4)),
+        totalMinutes: calculatedTotal,
       };
     })
     .filter(
-      (player): player is PreseasonMinutesTrackerPlayer => player != null,
+      (
+        player,
+      ): player is Pick<
+        PreseasonMinutesTrackerPlayer,
+        "playerName" | "position" | "matchMinutes" | "totalMinutes"
+      > => player != null,
     );
+  const possibleMinutes = minuteIndexes.reduce(
+    (sum, _, matchIndex) =>
+      sum +
+      Math.max(
+        90,
+        ...rawPlayers.map((player) => player.matchMinutes[matchIndex] ?? 0),
+      ),
+    0,
+  );
+  const players = rawPlayers.map((player) => ({
+    ...player,
+    possibleMinutes,
+    participationRate:
+      possibleMinutes === 0
+        ? 0
+        : Number((player.totalMinutes / possibleMinutes).toFixed(4)),
+  }));
   if (players.length === 0) {
     throw new PreseasonMinutesTrackerCollectorError(
       `Tracker tab ${input.teamCode} contains no player rows`,

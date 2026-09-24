@@ -1,4 +1,5 @@
 import {
+  Activity,
   CircleAlert,
   CircleCheck,
   CircleDashed,
@@ -9,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   availabilityLabel,
+  hasWideForecastRange,
   positionLabel,
   type ExplorerPlayer,
   type ForecastConfidence,
@@ -48,11 +50,20 @@ export function PlayerIdentity({
       <div className="min-w-0">
         <p
           className={cn(
-            "truncate font-black",
+            "flex min-w-0 items-center gap-1.5 font-black",
             compact ? (table ? "text-sm" : "text-xs") : "text-base",
           )}
         >
-          {player.webName}
+          <span className="truncate">{player.webName}</span>
+          {hasWideForecastRange(player.forecastRange, player.forecastTotal) ? (
+            <span
+              className="inline-flex shrink-0"
+              aria-label="Wide indicative range"
+              title="Wide indicative range: outcomes can vary substantially around the projection"
+            >
+              <Activity className="size-3.5 text-uncertainty" aria-hidden="true" />
+            </span>
+          ) : null}
         </p>
         <p
           className={cn(

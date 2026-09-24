@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PreseasonMinutesTrackerService } from "../lib/services/preseasonMinutesTrackerService";
 import { SeasonPredictionPublicationService } from "../lib/services/seasonPredictionPublicationService";
+import { RollingPredictionService } from "../lib/services/rollingPredictionService";
 
 function readSeasonCode(): string {
   const season = process.argv
@@ -21,10 +22,19 @@ async function main() {
   const sync = await new PreseasonMinutesTrackerService(prisma).sync({
     targetSeasonCode,
   });
-  const preview = await new SeasonPredictionPublicationService(
-    prisma,
-  ).buildGw1Preview({ targetSeasonCode });
-  console.log(JSON.stringify({ sync, preview }, null, 2));
+  const season = await prisma.season.findUnique({
+    where: { code: targetSeasonCode },
+    select: { status: true, isCurrent: true },
+  });
+  if (!season) throw new Error(`Season ${targetSeasonCode} not found`);
+
+  const forecast =
+    season.status === "UPCOMING" && !season.isCurrent
+      ? await new SeasonPredictionPublicationService(prisma).buildGw1Preview({
+          targetSeasonCode,
+        })
+      : await new RollingPredictionService(prisma).build({ targetSeasonCode });
+  console.log(JSON.stringify({ sync, forecast }, null, 2));
 }
 
 main()

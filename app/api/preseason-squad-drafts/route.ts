@@ -4,6 +4,7 @@ import {
   preseasonSquadDraftCreateSchema,
   type PreseasonSquadDraftState,
 } from "@/lib/services/preseasonSquadDraftService";
+import { ROLLING_PREDICTION_DATASET } from "@/lib/services/rollingPredictionService";
 
 const DEFAULT_SEASON = "2026/27";
 
@@ -13,18 +14,23 @@ function parseSeason(request: Request) {
   return /^\d{4}\/\d{2}$/.test(season) ? season : null;
 }
 
-async function eligibleSeasonWithPreview(code: string) {
+async function eligibleSeasonWithForecast(code: string) {
   const season = await prisma.season.findUnique({
     where: { code },
     select: { id: true, code: true, status: true, isCurrent: true },
   });
-  if (!season || season.status !== "UPCOMING" || season.isCurrent) return null;
+  if (!season) return null;
+  const isUpcoming = season.status === "UPCOMING" && !season.isCurrent;
+  const isActive = season.status === "ACTIVE" && season.isCurrent;
+  if (!isUpcoming && !isActive) return null;
 
   const snapshot = await prisma.sourceSnapshot.findFirst({
     where: {
       seasonId: season.id,
       source: "internal",
-      dataset: "gw1-preseason-projection-preview",
+      dataset: isActive
+        ? ROLLING_PREDICTION_DATASET
+        : "gw1-preseason-projection-preview",
       valid: true,
     },
     orderBy: { fetchedAt: "desc" },
@@ -80,11 +86,11 @@ export async function GET(request: Request) {
   const seasonCode = parseSeason(request);
   if (!seasonCode)
     return NextResponse.json({ error: "Invalid season code" }, { status: 400 });
-  const context = await eligibleSeasonWithPreview(seasonCode);
+  const context = await eligibleSeasonWithForecast(seasonCode);
   if (!context)
     return NextResponse.json(
       {
-        error: "Drafts require an UPCOMING, non-current season with a preview",
+        error: "Drafts require an eligible season with a current forecast",
       },
       { status: 409 },
     );
@@ -113,11 +119,11 @@ export async function POST(request: Request) {
       { status: 400 },
     );
 
-  const context = await eligibleSeasonWithPreview(parsed.data.season);
+  const context = await eligibleSeasonWithForecast(parsed.data.season);
   if (!context)
     return NextResponse.json(
       {
-        error: "Drafts require an UPCOMING, non-current season with a preview",
+        error: "Drafts require an eligible season with a current forecast",
       },
       { status: 409 },
     );

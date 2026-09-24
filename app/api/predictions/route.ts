@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   try {
     const season = await prisma.season.findUnique({
       where: { code: seasonCode },
-      select: { id: true, code: true },
+      select: { id: true, code: true, status: true, isCurrent: true },
     });
     if (!season) {
       return NextResponse.json({ error: "Season not found" }, { status: 404 });
@@ -60,7 +60,10 @@ export async function GET(request: Request) {
           season: season.code,
           gameweeks: rolling.horizonGameweeks,
           source: "ROLLING_NEXT_5",
-          status: "PREVIEW_ONLY",
+          status:
+            season.status === "ACTIVE" && season.isCurrent
+              ? "ACTIVE"
+              : "PREVIEW_ONLY",
           methodology: rolling.methodology,
           snapshot: {
             id: rollingSnapshot.id,

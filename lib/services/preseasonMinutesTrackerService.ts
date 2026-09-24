@@ -44,7 +44,7 @@ const trackerMappingSchema = z.object({
   playerName: z.string().min(1),
   totalMinutes: z.number().int().nonnegative(),
   possibleMinutes: z.number().int().positive(),
-  matchMinutes: z.array(z.number().int().min(0).max(90)).min(1),
+  matchMinutes: z.array(z.number().int().min(0).max(120)).min(1),
   participationRate: z.number().min(0).max(1),
   expectedMinutesCap: z.number().int().min(0).max(90),
 });
@@ -157,9 +157,12 @@ export class PreseasonMinutesTrackerService {
     });
     if (!targetSeason)
       throw new Error(`Season ${input.targetSeasonCode} not found`);
-    if (targetSeason.status !== "UPCOMING" || targetSeason.isCurrent) {
+    const acceptsPreseasonEvidence =
+      (targetSeason.status === "UPCOMING" && !targetSeason.isCurrent) ||
+      (targetSeason.status === "ACTIVE" && targetSeason.isCurrent);
+    if (!acceptsPreseasonEvidence) {
       throw new Error(
-        "Pre-season tracker sync requires an UPCOMING, non-current season",
+        "Pre-season tracker sync requires the upcoming season or the current active season",
       );
     }
     const [tracker, teams, registrations] = await Promise.all([

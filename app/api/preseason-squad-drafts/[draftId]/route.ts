@@ -4,6 +4,7 @@ import {
   preseasonSquadDraftUpdateSchema,
   type PreseasonSquadDraftState,
 } from "@/lib/services/preseasonSquadDraftService";
+import { ROLLING_PREDICTION_DATASET } from "@/lib/services/rollingPredictionService";
 
 async function eligibleDraft(draftId: number) {
   const draft = await prisma.preseasonSquadDraft.findUnique({
@@ -14,13 +15,18 @@ async function eligibleDraft(draftId: number) {
       },
     },
   });
-  if (!draft || draft.season.status !== "UPCOMING" || draft.season.isCurrent)
-    return null;
+  if (!draft) return null;
+  const isUpcoming =
+    draft.season.status === "UPCOMING" && !draft.season.isCurrent;
+  const isActive = draft.season.status === "ACTIVE" && draft.season.isCurrent;
+  if (!isUpcoming && !isActive) return null;
   const snapshot = await prisma.sourceSnapshot.findFirst({
     where: {
       seasonId: draft.seasonId,
       source: "internal",
-      dataset: "gw1-preseason-projection-preview",
+      dataset: isActive
+        ? ROLLING_PREDICTION_DATASET
+        : "gw1-preseason-projection-preview",
       valid: true,
     },
     orderBy: { fetchedAt: "desc" },

@@ -287,6 +287,17 @@ test("GW1 audit keeps the comparison separate from calibration", () => {
   assert.equal(report.byConfidence.LOW.bias, -2);
 });
 
+test("GW1 audit retains a negative FPL expectation instead of rejecting it", () => {
+  const report = buildGw1AuditReport(
+    [{ seasonPlayerId: 1, fplId: 10, confidence: "LOW", totalXPts: -0.2 }],
+    new Map([[1, 0]]),
+  );
+
+  assert.equal(report.meanPredictedXPts, -0.2);
+  assert.equal(report.bias, 0.2);
+  assert.equal(report.mae, 0.2);
+});
+
 test("preseason player reliability separates a stable starter from continuity risk", () => {
   const stable = assessPreseasonPlayer({
     ...profile,

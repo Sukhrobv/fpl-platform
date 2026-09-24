@@ -1,5 +1,5 @@
 ﻿# FPL Platform - Status File
-# Updated: 2026-08-11 02:20
+# Updated: 2026-09-14 02:21
 # Chat ID: initial_development_session
 # GitHub: https://github.com/Sukhrobv/fpl-platform
 
@@ -7,15 +7,15 @@ project_info:
   name: "FPL Analytics Platform"
   version: "0.1.0"
   status: "Active Development"
-  last_sync: "2026-08-11 02:20"
+  last_sync: "2026-09-14 02:21"
   repository: "https://github.com/Sukhrobv/fpl-platform"
   description: "Personal FPL analytics tool with Next.js monolith architecture"
 
   current_position:
     chapter: "D0"
     stage: "D0.8"
-    substage: "D0.8.1 corrected: priority-preserving FPL-position-constrained starts, dynamic rolling role confidence and stale-bootstrap guard; Builder usability refinement complete"
-    description: "D0.8 has a saved internal 2026/27 rolling five-GW forecast with a bounded player-versus-opponent xG/xA adjustment, priority-preserving FPL positional starter ceilings, conservative substitute budgets and post-GW role-confidence updates. Publication remains false and season activation is not requested."
+    substage: "D0.8.2 active: GW1-GW3 audits are complete; the current rolling snapshot covers the live roster"
+    description: "2026/27 is the current ACTIVE season. Official GW1-GW3 player data are audited against immutable pre-deadline forecasts; rolling snapshot 85 serves GW4-GW8 for all 626 active FPL registrations."
 
   progress:
     completed_chapters:
@@ -156,7 +156,7 @@ project_info:
                   - "React Chat UI with streaming-like UX"
 
     current_work:
-      task: "Await explicit approval for D0.8.2: retain immutable pre-deadline forecasts and audit them against official outcomes"
+      task: "Retain immutable pre-deadline forecasts and audit each settled gameweek against official outcomes"
       started: "2026-08-02"
       blockers:
         - "Next.js production compilation succeeds, but build still has pre-existing ESLint debt outside the data pipeline."
@@ -301,15 +301,24 @@ project_info:
         - "D0.8 Explorer virtual-scroll rendering: moved each visible player row into a memoized component, so retained rows skip cell construction, heatmap lookup and TanStack flex rendering while the scroll window advances. Reduced virtual overscan from eight to five rows per side to lower the live DOM work without risking blank space during normal scrolling. TypeScript and all 164 tests pass."
         - "D0.8 Squad table scroll performance: moved the right-hand forecast-table row into a memoized component, stabilized squad selection callbacks so retained rows can skip rerendering, and reduced virtual overscan from twelve to five. The virtualizer now remeasures and resets scroll only when its row-height mode changes, not when its hook object updates. TypeScript and all 164 tests pass."
         - "D0.8 lineup-capacity correction: start probabilities are now constrained jointly inside each team before becoming expected minutes. FPL positional ceilings are 1 GK / 5 DEF / 5 MID / 3 FWD; after those ceilings, all outfield positions share a ten-starter budget, so legal five-defender and five-midfielder formations remain possible while a team cannot exceed 11 expected starters. Capacity reductions are priority-preserving: likely starters lose less probability than fringe options. A shared five-substitute appearance budget also limits outfield bench minutes; goalkeepers receive no routine substitute minutes. After current-season matches exist, rolling confidence scores now update gradually from the player’s observed minutes and projected role for every FPL position, rather than remaining permanently pre-season labels. Internal snapshots 62 (GW1) and 63 (rolling) were rebuilt for all 555 players; Haaland recovered from 79.5% to 88.9% GW1 start probability and from 61.2 to 68.3 expected minutes while team limits remain enforced. TypeScript and all 172 tests pass."
-      notes: "The 2026/27 rolling next-five-GW preview and Preseason Decision Model remain internal. Each upcoming fixture is forecast independently and double/blank gameweeks are represented truthfully. Historical rates begin the season; official current-season FPL minutes, xG/xA, DEFCON, bonuses, saves and team scores progressively replace them after settled games are synced. A bounded H2H residual may nudge, never replace, the player baseline after at least 60 minutes from no more than two prior fixtures against the opponent; its influence is capped at 15%. The fixture card exposes the actual H2H sample (season, matches, minutes, xG, xA, goals and assists) separately from the model weight and final fixture rate. Google Sheets preseason minutes remain a saved source: only positive friendly participation creates a buffered cap for the first upcoming fixture, while an all-zero friendly record remains evidence-only. Bonus and save components are conservative rate-based expectations, not calibrated probabilities. The next required gate, pending explicit approval, is an immutable per-GW audit comparing the forecast available before the deadline with official outcomes; it must not tune weights until that audit evidence exists. The labelled local Squad Builder persists internal drafts but cannot submit an FPL action, enable publication or activate the season. Existing public-facing projections are not switched, 2026/27 remains UPCOMING/non-current, publication is false and activation is not requested. The final Next.js build still stops after successful compilation on separately tracked ESLint debt in pre-existing feature code."
+        - "D0.8 season activation: the validated official FPL bootstrap promoted 2026/27 to ACTIVE/current (20 teams, 555 players, 380 fixtures; 35 player registrations refreshed). Google Sheets tracker snapshot 71 captured 781 rows and 445 exact player mappings after accepting one unaggregated friendly and a 120-minute friendly format. Rolling snapshot 72 covers all 555 players for GW1-GW5. The predictions API now returns ACTIVE / ROLLING_NEXT_5, verified live against Neon. Settings pins a public FPL Team ID to this device and immediately requests a read-only squad sync. TypeScript and all 175 tests pass."
+        - "D0.8 Squad activation compatibility: persisted Squad drafts now accept the active current season and bind reads, creates and updates to the latest rolling forecast snapshot instead of requiring the retired UPCOMING-only GW1 preview. The live 2026/27 drafts endpoint returns snapshot 72; TypeScript and all 175 tests pass."
+        - "D0.8.2 GW1 audit: synced all ten finished fixtures and 610 official player-fixture rows. Immutable audit snapshot 76 compares pre-deadline snapshot 67 with 555 predicted players: mean xPts 1.188, mean actual 1.555, bias +0.367 and MAE 1.511. Confidence groups: HIGH 231 / +0.652 bias / 2.153 MAE; MEDIUM 105 / +0.650 / 1.339; LOW 219 / -0.069 / 0.917. The audit changes no weights. Rolling snapshot 75 now forecasts GW2-GW6 from GW1 evidence. Audit parsing now truthfully accepts negative expected FPL points, and a late FPL roster expansion no longer invalidates the immutable pre-deadline cohort. TypeScript and all 176 tests pass."
+        - "D0.8.2 GW1 evidence correction: a current-season rate with no historical PL prior now receives the same 540-minute shrinkage as every other rate, instead of accepting one match at full weight. This guards new/no-prior players against an inflated xG/xA, DEFCON, save or bonus contribution after GW1. Rolling snapshot 77 now forecasts GW2-GW6 for 555 players. Squad can import the stored linked FPL team into an empty draft or through an explicit Load linked team command without silently replacing an existing variant; Player Explorer and Squad tables flag wide indicative five-GW ranges. TypeScript and all 177 tests pass."
+        - "D0.8.2 GW2 sync: imported all completed GW2 official FPL data (626 player-fixture rows) and refreshed the live season roster (16 new registrations, 610 updated). Rolling snapshot 80, confirmed reusable, forecasts GW3-GW7 from two settled gameweeks for the 555-player forecast cohort. The existing immutable audit remains GW1-specific, so the immediate next implementation is a generic per-GW rolling-snapshot audit before any calibration."
+        - "D0.8.2 GW2 rolling audit: immutable audit snapshot 81 compares the last valid pre-deadline rolling snapshot 75 with official GW2 outcomes for all 555 forecast players. Mean xPts were 1.375 versus 1.449 actual, bias +0.073 and MAE 1.298. The report retains confidence, position and expected-minutes cuts, including 126 projected 60+ minute players with +0.422 bias and 2.530 MAE. It is observational only and does not alter model weights. TypeScript and all 178 tests pass."
+        - "D0.8.2 linked-squad and value-sort correction: linked FPL squads now return the current season's FPL element ID from SeasonPlayer rather than the stable player's stale ID, so Squad can match the live roster. Player Explorer normalizes missing £m/point values to undefined before sorting; TanStack therefore retains empty metrics at the bottom in either direction. TypeScript and all 180 tests pass."
+        - "D0.8.2 live Squad-pool correction: rolling v4 snapshot 82 forecasts GW3-GW7 for all 626 active FPL registrations. Late registrations are future-only LOW-confidence profiles that preserve a historical prior where available and never rewrite immutable GW1/GW2 audit cohorts. Squad now reads the latest valid rolling snapshot and rejects an incomplete pool instead of reporting a misleading linked-team mismatch. The endpoint returned HTTP 200 from the local app; TypeScript and all 181 tests pass."
+        - "D0.8.2 GW3 staged check: synced 654 official player-fixture rows for all ten finished GW3 matches, then saved immutable audit snapshot 86 against pre-deadline rolling snapshot 82. Mean xPts were 1.172 versus 1.419 actual, bias +0.246 and MAE 1.178. This improves the three-GW MAE sequence from 1.511 (GW1) to 1.298 (GW2) to 1.178 (GW3), but remains observational: model weights were not changed. Rolling snapshot 85 then forecast GW4-GW8 from the three settled gameweeks. TypeScript and all 181 tests pass."
+      notes: "The active 2026/27 rolling five-GW forecast calculates every upcoming fixture independently; double and blank gameweeks remain truthful. Historical rates begin the season, while official current-season FPL minutes, xG/xA, DEFCON, bonuses, saves and team scores progressively replace them after each settled-gameweek sync. A bounded H2H residual may nudge, never replace, the player baseline after at least 60 minutes from no more than two prior fixtures against the opponent; its influence is capped at 15%. Google Sheets preseason minutes remain a saved source: only positive friendly participation creates a buffered cap for the first upcoming fixture, while an all-zero friendly record remains evidence-only. PulseLive enrichment remains disabled until the first settled current-season snapshot passes mapping, coverage and freshness gates. The Squad Planner and FPL account connection are read-only: they never submit FPL transfers or changes. The GW1-GW3 audits are immutable comparisons, not calibration. Late current-season registrations are included in the live rolling pool as future-only LOW-confidence profiles, while their absence from pre-deadline audit cohorts remains intentional. The final Next.js build still stops after successful compilation on separately tracked ESLint debt in pre-existing feature code."
 
     next_steps:
-      immediate: "Await explicit approval for D0.8.2: retain the immutable pre-deadline forecast for each gameweek and audit it against official FPL outcomes."
+      immediate: "Retain the pre-deadline GW4 forecast and repeat the immutable audit only once all GW4 fixtures settle; do not calibrate weights from three gameweeks."
       upcoming:
         - "D0.8.2: retain the immutable pre-deadline forecast for every settled GW and run the existing audit against official FPL outcomes."
         - "D0.8.3: calibrate xPts and component weights only after enough audited gameweeks exist; never tune from post-deadline data."
+        - "D0.8: retain future-only LOW-confidence handling for post-deadline FPL registrations without inserting them into historical audits."
         - "D0.7: add coverage, freshness and schema-drift observability after the forecast audit loop is operating."
-        - "Request a separate explicit decision before any user-facing publication or 2026/27 activation."
 
 technical_stack:
   confirmed:

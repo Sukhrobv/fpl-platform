@@ -2,12 +2,44 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 import {
   blendCurrentRate,
+  buildLateRegistrationProfile,
   canUseCurrentSeasonBootstrap,
   calculateH2hRateAdjustment,
   expectedSavePoints,
   rollingRoleConfidence,
   rollingStartProbability,
 } from "../lib/services/rollingPredictionService";
+
+test("late registrations receive a future-only low-confidence profile", () => {
+  const profile = buildLateRegistrationProfile({
+    seasonPlayerId: 901,
+    fplId: 1901,
+    playerId: 501,
+    playerName: "Late Player",
+    team: "NEW",
+    position: "MIDFIELDER",
+    price: 55,
+    availability: { status: "a", chanceOfPlaying: null },
+    prior: {
+      minutes: 1200,
+      appearances: 20,
+      starts: 12,
+      confidenceScore: 0.82,
+      xG90: 0.25,
+      xA90: 0.18,
+      touches90: null,
+      keyPasses90: null,
+      carries90: null,
+      defconActions90: null,
+      clearances90: null,
+    },
+  });
+
+  assert.equal(profile.confidence, "LOW");
+  assert.equal(profile.confidenceScore, 0.45);
+  assert.equal(profile.provenance, "PLAYER_PRIOR");
+  assert.deepEqual(profile.uncertaintyReasons, ["LATE_FPL_REGISTRATION"]);
+});
 
 test("pre-season rolling forecasts do not reuse stale bootstrap totals", () => {
   assert.equal(canUseCurrentSeasonBootstrap(0), false);
@@ -28,6 +60,17 @@ test("current-season rates move gradually away from the prior", () => {
   assert.ok(early != null && established != null);
   assert.ok(early > 0.2 && early < 0.5);
   assert.ok(established > early && established < 0.5);
+});
+
+test("a first current-season rate without a prior remains shrunk", () => {
+  const firstMatch = blendCurrentRate({
+    prior: null,
+    current: 0.7,
+    currentMinutes: 90,
+  });
+  assert.ok(firstMatch != null);
+  assert.ok(firstMatch > 0);
+  assert.ok(firstMatch < 0.2);
 });
 
 test("rolling minutes update the start probability without overreacting to one cameo", () => {

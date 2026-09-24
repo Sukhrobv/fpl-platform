@@ -22,8 +22,8 @@ export default function HomePage() {
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
             Your squad, player forecasts and evidence in one analytical
-            workspace. The 2025/26 evidence base is frozen while official
-            2026/27 FPL data is pending.
+            workspace. The 2025/26 evidence base is frozen, while live 2026/27
+            FPL data refreshes the current forecasts.
           </p>
         </div>
         <div className="border-t-2 border-foreground pt-4">
@@ -32,13 +32,13 @@ export default function HomePage() {
               <p className="text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
                 Current operating mode
               </p>
-              <p className="mt-2 text-xl font-black">Pre-season research</p>
+              <p className="mt-2 text-xl font-black">Active season</p>
             </div>
             <CalendarClock className="size-6 text-primary" aria-hidden="true" />
           </div>
           <p className="mt-5 text-sm leading-6 text-muted-foreground">
-            Publication remains locked until the new roster, fixtures and
-            mappings pass their gates.
+            Rolling forecasts update after official FPL syncs and remain
+            transparent about the evidence used.
           </p>
         </div>
       </section>

@@ -1,6 +1,18 @@
 import { prisma } from "@/lib/db";
 import { getEntry, getEntryPicks } from "@/lib/fplClient";
 
+export function currentSeasonFplId(
+  registrations: ReadonlyArray<{ fplId: number }>,
+) {
+  const fplId = registrations[0]?.fplId;
+  if (fplId == null) {
+    throw new Error(
+      "Linked squad player is missing from the current season roster",
+    );
+  }
+  return fplId;
+}
+
 export class FPLPersonalService {
   /**
    * Syncs a user's FPL team data for the current gameweek.
@@ -155,6 +167,11 @@ export class FPLPersonalService {
         player: {
           include: {
             team: true,
+            seasonPlayers: {
+              where: { seasonId: season.id },
+              select: { fplId: true },
+              take: 1,
+            },
             fplStats: {
               where: { seasonId: season.id, gameweek: targetGw },
               take: 1,
@@ -165,10 +182,18 @@ export class FPLPersonalService {
       orderBy: { position: "asc" },
     });
 
-    // Reconstruct the response structure to match what the frontend expects
     return {
       ...targetTeam,
-      picks: picks,
+      picks: picks.map(({ player, ...pick }) => {
+        const { seasonPlayers, ...stablePlayer } = player;
+        return {
+          ...pick,
+          player: {
+            ...stablePlayer,
+            fplId: currentSeasonFplId(seasonPlayers),
+          },
+        };
+      }),
     };
   }
 }

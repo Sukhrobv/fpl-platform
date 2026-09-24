@@ -86,17 +86,15 @@ export function SettingsWorkspace() {
       return;
     }
     setFplId(normalized);
-    setAccountState("checking");
-    setMessage("FPL ID saved on this device. Checking for a stored squad.");
-    setAccountState((await storedSquadExists(normalized)) ? "stored" : "saved");
+    await syncTeam(normalized);
   };
 
-  const syncTeam = async () => {
-    if (!validFplId(fplId)) return;
+  const syncTeam = async (teamId = fplId) => {
+    if (!validFplId(teamId)) return;
     setSyncState("syncing");
     setMessage(null);
     try {
-      const response = await fetch(`/api/personal/${fplId}/sync`, {
+      const response = await fetch(`/api/personal/${teamId}/sync`, {
         method: "POST",
       });
       if (!response.ok) throw new Error("Fresh sync unavailable");
@@ -152,7 +150,7 @@ export function SettingsWorkspace() {
                     FPL account
                   </h2>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Your public team ID is enough. No FPL password is required.
+                    Pin your public team ID. No FPL password is required.
                   </p>
                 </div>
               </div>
@@ -180,12 +178,12 @@ export function SettingsWorkspace() {
                 />
                 <Button type="submit">
                   <Check data-icon="inline-start" aria-hidden="true" />
-                  Save ID
+                  Pin and sync
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={syncTeam}
+                  onClick={() => void syncTeam()}
                   disabled={!fplId || syncState === "syncing"}
                 >
                   <RefreshCw
@@ -196,7 +194,7 @@ export function SettingsWorkspace() {
                     data-icon="inline-start"
                     aria-hidden="true"
                   />
-                  Try live sync
+                  Sync now
                 </Button>
               </div>
               {message && (
