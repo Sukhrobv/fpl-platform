@@ -1,5 +1,5 @@
 ﻿# FPL Platform - Status File
-# Updated: 2026-09-14 02:21
+# Updated: 2026-09-24 15:23
 # Chat ID: initial_development_session
 # GitHub: https://github.com/Sukhrobv/fpl-platform
 
@@ -7,7 +7,7 @@ project_info:
   name: "FPL Analytics Platform"
   version: "0.1.0"
   status: "Active Development"
-  last_sync: "2026-09-14 02:21"
+  last_sync: "2026-09-24 15:23"
   repository: "https://github.com/Sukhrobv/fpl-platform"
   description: "Personal FPL analytics tool with Next.js monolith architecture"
 
@@ -310,6 +310,7 @@ project_info:
         - "D0.8.2 linked-squad and value-sort correction: linked FPL squads now return the current season's FPL element ID from SeasonPlayer rather than the stable player's stale ID, so Squad can match the live roster. Player Explorer normalizes missing £m/point values to undefined before sorting; TanStack therefore retains empty metrics at the bottom in either direction. TypeScript and all 180 tests pass."
         - "D0.8.2 live Squad-pool correction: rolling v4 snapshot 82 forecasts GW3-GW7 for all 626 active FPL registrations. Late registrations are future-only LOW-confidence profiles that preserve a historical prior where available and never rewrite immutable GW1/GW2 audit cohorts. Squad now reads the latest valid rolling snapshot and rejects an incomplete pool instead of reporting a misleading linked-team mismatch. The endpoint returned HTTP 200 from the local app; TypeScript and all 181 tests pass."
         - "D0.8.2 GW3 staged check: synced 654 official player-fixture rows for all ten finished GW3 matches, then saved immutable audit snapshot 86 against pre-deadline rolling snapshot 82. Mean xPts were 1.172 versus 1.419 actual, bias +0.246 and MAE 1.178. This improves the three-GW MAE sequence from 1.511 (GW1) to 1.298 (GW2) to 1.178 (GW3), but remains observational: model weights were not changed. Rolling snapshot 85 then forecast GW4-GW8 from the three settled gameweeks. TypeScript and all 181 tests pass."
+        - "Repository checkpoint: committed and pushed the complete current workspace to origin/main as 1adfbd6 (feat: refresh rolling forecasts and squad workspace); TypeScript and all 181 tests passed immediately before the commit."
       notes: "The active 2026/27 rolling five-GW forecast calculates every upcoming fixture independently; double and blank gameweeks remain truthful. Historical rates begin the season, while official current-season FPL minutes, xG/xA, DEFCON, bonuses, saves and team scores progressively replace them after each settled-gameweek sync. A bounded H2H residual may nudge, never replace, the player baseline after at least 60 minutes from no more than two prior fixtures against the opponent; its influence is capped at 15%. Google Sheets preseason minutes remain a saved source: only positive friendly participation creates a buffered cap for the first upcoming fixture, while an all-zero friendly record remains evidence-only. PulseLive enrichment remains disabled until the first settled current-season snapshot passes mapping, coverage and freshness gates. The Squad Planner and FPL account connection are read-only: they never submit FPL transfers or changes. The GW1-GW3 audits are immutable comparisons, not calibration. Late current-season registrations are included in the live rolling pool as future-only LOW-confidence profiles, while their absence from pre-deadline audit cohorts remains intentional. The final Next.js build still stops after successful compilation on separately tracked ESLint debt in pre-existing feature code."
 
     next_steps:
